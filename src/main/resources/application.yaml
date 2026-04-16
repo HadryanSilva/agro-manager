@@ -20,6 +20,10 @@ spring:
       - classpath:db/migration/common
       - classpath:db/migration/{vendor}
   web:
+    resources:
+      # Without this, Spring serves a static-resource 404 page instead of
+      # letting NoResourceFoundException reach our GlobalExceptionHandler.
+      add-mappings: false
     error:
       include-message: always
       include-binding-errors: always
