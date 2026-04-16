@@ -18,6 +18,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -30,14 +31,17 @@ import org.springframework.web.bind.annotation.RestController;
  * resulting status code and ProblemDetail body.
  */
 @WebMvcTest(GlobalExceptionHandlerTest.TestController.class)
+@ActiveProfiles("test")
 @Import({GlobalExceptionHandler.class, GlobalExceptionHandlerTest.TestController.class})
 class GlobalExceptionHandlerTest {
 
     @Autowired
     private MockMvc mvc;
 
-    @Autowired
-    private ObjectMapper objectMapper;
+    // Instantiated directly rather than autowired: @WebMvcTest slices don't
+    // always expose the ObjectMapper bean, and we only need it here to
+    // serialize a single tiny payload.
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
     void notFound_returns404() throws Exception {
@@ -53,7 +57,7 @@ class GlobalExceptionHandlerTest {
     @Test
     void business_returns422() throws Exception {
         mvc.perform(get("/test/business"))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.title").value("Business Rule Violated"))
                 .andExpect(jsonPath("$.status").value(422));
     }

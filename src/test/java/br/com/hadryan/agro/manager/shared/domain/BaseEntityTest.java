@@ -1,20 +1,15 @@
 package br.com.hadryan.agro.manager.shared.domain;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import br.com.hadryan.agro.manager.config.JpaConfig;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Table;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
-import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.OptimisticLockingFailureException;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.test.context.TestPropertySource;
-
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.*;
+import org.springframework.test.context.ActiveProfiles;
 
 /**
  * Verifies that any entity extending {@link BaseEntity} automatically gets:
@@ -25,18 +20,12 @@ import static org.junit.jupiter.api.Assertions.*;
  *   <li>Optimistic locking failures when a stale version is written.</li>
  * </ul>
  *
- * <p>Uses a tiny dummy entity declared inside the test package so the test is
- * self-contained and doesn't depend on any feature entity existing yet.
+ * <p>Exercises the behaviour through {@link DummyEntity} — a test-only
+ * top-level entity — instead of depending on any feature entity existing.
  */
 @DataJpaTest
+@ActiveProfiles("test")
 @Import(JpaConfig.class)
-@AutoConfigureTestDatabase
-@TestPropertySource(properties = {
-        // The test's throwaway entity isn't covered by any Flyway migration,
-        // so we let Hibernate create its table for this test only.
-        "spring.jpa.hibernate.ddl-auto=create-drop",
-        "spring.flyway.enabled=false"
-})
 class BaseEntityTest {
 
     @Autowired
@@ -71,43 +60,47 @@ class BaseEntityTest {
 
     @Test
     void failsOnStaleVersion() {
-        DummyEntity saved = repository.saveAndFlush(new DummyEntity("first"));
+        // Persist a row so there's something to collide with.
+        DummyEntity persisted = repository.saveAndFlush(new DummyEntity("first"));
+        Long id = persisted.getId();
 
-        // Simulate a concurrent edit: someone else already bumped the version.
-        DummyEntity stale = repository.findById(saved.getId()).orElseThrow();
-        DummyEntity fresh = repository.findById(saved.getId()).orElseThrow();
+        // Build a brand-new, detached entity with the same id but a
+        // version number that will never match the DB (9999). When
+        // Hibernate generates the UPDATE, the WHERE clause won't match
+        // any row and the optimistic-lock check fails.
+        //
+        // This pattern is more reliable than re-reading the entity twice
+        // inside @DataJpaTest, because the single persistence context
+        // would hand out the same managed instance for both reads.
+        DummyEntity stale = new DummyEntity("loser");
+        setField(stale, "id", id);
+        setField(stale, "version", 9999L);
 
-        fresh.setLabel("winner");
-        repository.saveAndFlush(fresh);
-
-        stale.setLabel("loser");
         assertThatThrownBy(() -> repository.saveAndFlush(stale))
                 .isInstanceOf(OptimisticLockingFailureException.class);
     }
 
-    @Entity
-    @Table(name = "dummy_entity")
-    static class DummyEntity extends BaseEntity {
-
-        private String label;
-
-        protected DummyEntity() {
-            // Required by JPA.
+    /**
+     * Writes to a private field via reflection. Used only to forge a
+     * "stale" copy of an entity with a controlled version — production
+     * code never needs this because Hibernate manages both id and version.
+     */
+    private static void setField(Object target, String fieldName, Object value) {
+        try {
+            Class<?> type = target.getClass();
+            while (type != null) {
+                try {
+                    var field = type.getDeclaredField(fieldName);
+                    field.setAccessible(true);
+                    field.set(target, value);
+                    return;
+                } catch (NoSuchFieldException ignored) {
+                    type = type.getSuperclass();
+                }
+            }
+            throw new IllegalStateException("Field not found: " + fieldName);
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException(e);
         }
-
-        DummyEntity(String label) {
-            this.label = label;
-        }
-
-        String getLabel() {
-            return label;
-        }
-
-        void setLabel(String label) {
-            this.label = label;
-        }
-    }
-
-    interface DummyRepository extends JpaRepository<DummyEntity, Long> {
     }
 }

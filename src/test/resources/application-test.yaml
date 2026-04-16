@@ -1,0 +1,29 @@
+# Test profile. Active implicitly on every @DataJpaTest / @SpringBootTest
+# thanks to the @ActiveProfiles("test") placed on each test class.
+#
+# Strategy: let Hibernate build the schema from the entity model instead of
+# relying on Flyway + schema validation. This sidesteps the whole ordering
+# dance (Flyway runs before Hibernate validate) and keeps tests fast.
+#
+# Production still uses Flyway — this only applies when the "test" profile
+# is active.
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:agromanager-test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ''
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: false
+
+logging:
+  level:
+    br.com.hadryan.agro.manager: DEBUG
