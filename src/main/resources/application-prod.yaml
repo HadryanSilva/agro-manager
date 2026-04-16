@@ -1,0 +1,20 @@
+spring:
+  datasource:
+    # All connection details come from environment variables. Never commit
+    # credentials. Example: DB_URL=jdbc:postgresql://localhost:5432/agromanager
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+
+logging:
+  level:
+    br.com.hadryan.agro.manager: INFO
