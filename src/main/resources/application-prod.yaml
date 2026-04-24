@@ -32,7 +32,14 @@ spring:
             scope:
               - email
               - profile
-            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            # URI registrado no Google Console: {FRONTEND_URL}/api/login/oauth2/code/google
+            # O Nginx remove o prefixo /api antes de encaminhar ao backend
+            redirect-uri: "${FRONTEND_URL}/api/login/oauth2/code/google"
+
+server:
+  # Necessário para que o Spring resolva corretamente as URLs atrás do Nginx
+  # e gere os redirect URIs do OAuth2 com o domínio público correto
+  forward-headers-strategy: framework
 
 app:
   jwt:
