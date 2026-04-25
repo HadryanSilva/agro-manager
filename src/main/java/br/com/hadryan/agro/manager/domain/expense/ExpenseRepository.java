@@ -18,11 +18,19 @@ public interface ExpenseRepository extends JpaRepository<Expense, UUID> {
     // Busca uma despesa garantindo que pertence à lavoura informada
     Optional<Expense> findByIdAndFarmId(UUID id, UUID farmId);
 
-    // Soma total das despesas de uma lavoura (usado no dashboard futuro)
+    // Soma total das despesas de uma lavoura (usado nos cards da lavoura e no dashboard)
     @Query("SELECT COALESCE(SUM(e.value), 0) FROM Expense e WHERE e.farm.id = :farmId")
     BigDecimal sumValueByFarmId(UUID farmId);
 
     // Soma apenas das despesas já pagas de uma lavoura
     @Query("SELECT COALESCE(SUM(e.value), 0) FROM Expense e WHERE e.farm.id = :farmId AND e.paymentDate IS NOT NULL")
     BigDecimal sumPaidValueByFarmId(UUID farmId);
+
+    // Soma total de todas as despesas de todas as lavouras de uma conta (usado no dashboard)
+    @Query("SELECT COALESCE(SUM(e.value), 0) FROM Expense e WHERE e.farm.account.id = :accountId")
+    BigDecimal sumValueByAccountId(UUID accountId);
+
+    // Soma das despesas pagas de todas as lavouras de uma conta
+    @Query("SELECT COALESCE(SUM(e.value), 0) FROM Expense e WHERE e.farm.account.id = :accountId AND e.paymentDate IS NOT NULL")
+    BigDecimal sumPaidValueByAccountId(UUID accountId);
 }

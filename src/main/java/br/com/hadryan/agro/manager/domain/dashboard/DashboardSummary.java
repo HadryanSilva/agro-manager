@@ -11,7 +11,7 @@ import java.util.UUID;
 
 /**
  * Resposta agregada do dashboard de uma conta.
- * Contém métricas calculadas em memória a partir das lavouras da conta.
+ * Contém métricas calculadas em memória a partir das lavouras e despesas da conta.
  */
 public record DashboardSummary(
 
@@ -29,13 +29,19 @@ public record DashboardSummary(
         // Arrendamentos vencendo nos próximos 30 dias (apenas lavouras ativas)
         long leasesExpiringIn30Days,
 
-        // Últimas 5 lavouras cadastradas
+        // Resumo financeiro consolidado da conta
+        BigDecimal totalExpenses,
+        BigDecimal totalExpensesPaid,
+        BigDecimal totalExpensesPending,
+
+        // Últimas 5 lavouras cadastradas (com totais de despesa individuais)
         List<RecentFarm> recentFarms
 
 ) {
 
     /**
      * Projeção leve de lavoura usada na lista de atividade recente.
+     * Inclui totais de despesa para exibição rápida sem chamadas adicionais.
      */
     public record RecentFarm(
             UUID id,
@@ -44,6 +50,8 @@ public record DashboardSummary(
             AreaUnit areaUnit,
             FarmStatus status,
             LocalDate plantingStartDate,
-            LocalDateTime createdAt
+            LocalDateTime createdAt,
+            BigDecimal totalExpenses,
+            BigDecimal totalExpensesPaid
     ) {}
 }

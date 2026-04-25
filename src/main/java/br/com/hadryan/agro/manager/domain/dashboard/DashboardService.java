@@ -2,6 +2,7 @@ package br.com.hadryan.agro.manager.domain.dashboard;
 
 import br.com.hadryan.agro.manager.domain.account.AccountMemberRepository;
 import br.com.hadryan.agro.manager.domain.account.AccountRepository;
+import br.com.hadryan.agro.manager.domain.expense.ExpenseRepository;
 import br.com.hadryan.agro.manager.domain.farm.AreaUnit;
 import br.com.hadryan.agro.manager.domain.farm.Farm;
 import br.com.hadryan.agro.manager.domain.farm.FarmRepository;
@@ -20,8 +21,8 @@ import java.util.UUID;
 
 /**
  * Serviço responsável por agregar as métricas exibidas no dashboard da conta.
- * A agregação é feita em memória pois o volume de lavouras por conta é pequeno.
- * FarmStatus é calculado dinamicamente e não pode ser filtrado no banco.
+ * A agregação de lavouras é feita em memória (volume pequeno por conta).
+ * Os totais financeiros usam queries JPQL agregadas para evitar carregar todas as despesas.
  */
 @Service
 @RequiredArgsConstructor
@@ -30,6 +31,7 @@ public class DashboardService {
     private final FarmRepository farmRepository;
     private final AccountRepository accountRepository;
     private final AccountMemberRepository accountMemberRepository;
+    private final ExpenseRepository expenseRepository;
 
     @Transactional(readOnly = true)
     public DashboardSummary getSummary(UUID accountId, UUID userId) {
@@ -56,8 +58,8 @@ public class DashboardService {
         BigDecimal totalAlqueires = totalArea(farms, AreaUnit.ALQUEIRE);
 
         // ── Arrendamentos vencendo nos próximos 30 dias ───────────────────────
-        LocalDate hoje      = LocalDate.now();
-        LocalDate em30Dias  = hoje.plusDays(30);
+        LocalDate hoje     = LocalDate.now();
+        LocalDate em30Dias = hoje.plusDays(30);
 
         long leasesExpiring = farms.stream()
                 .filter(f -> !f.isCancelled())
@@ -66,18 +68,29 @@ public class DashboardService {
                         && !f.getLeaseEndDate().isAfter(em30Dias))
                 .count();
 
-        // ── Últimas 5 lavouras para o feed de atividade recente ───────────────
+        // ── Totais financeiros da conta (queries agregadas — eficiente) ───────
+        BigDecimal totalExpenses = expenseRepository.sumValueByAccountId(accountId);
+        BigDecimal totalPaid     = expenseRepository.sumPaidValueByAccountId(accountId);
+        BigDecimal totalPending  = totalExpenses.subtract(totalPaid);
+
+        // ── Últimas 5 lavouras com seus totais de despesa individuais ─────────
         List<DashboardSummary.RecentFarm> recentFarms = farms.stream()
                 .limit(5)
-                .map(f -> new DashboardSummary.RecentFarm(
-                        f.getId(),
-                        f.getName(),
-                        f.getAreaValue(),
-                        f.getAreaUnit(),
-                        f.getStatus(),
-                        f.getPlantingStartDate(),
-                        f.getCreatedAt()
-                ))
+                .map(f -> {
+                    BigDecimal farmTotal = expenseRepository.sumValueByFarmId(f.getId());
+                    BigDecimal farmPaid  = expenseRepository.sumPaidValueByFarmId(f.getId());
+                    return new DashboardSummary.RecentFarm(
+                            f.getId(),
+                            f.getName(),
+                            f.getAreaValue(),
+                            f.getAreaUnit(),
+                            f.getStatus(),
+                            f.getPlantingStartDate(),
+                            f.getCreatedAt(),
+                            farmTotal,
+                            farmPaid
+                    );
+                })
                 .toList();
 
         return new DashboardSummary(
@@ -89,6 +102,9 @@ public class DashboardService {
                 totalHectares,
                 totalAlqueires,
                 leasesExpiring,
+                totalExpenses,
+                totalPaid,
+                totalPending,
                 recentFarms
         );
     }
