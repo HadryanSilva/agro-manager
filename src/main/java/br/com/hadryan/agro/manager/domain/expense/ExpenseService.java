@@ -3,6 +3,8 @@ package br.com.hadryan.agro.manager.domain.expense;
 import br.com.hadryan.agro.manager.domain.account.AccountMemberRepository;
 import br.com.hadryan.agro.manager.domain.account.AccountRepository;
 import br.com.hadryan.agro.manager.domain.farm.Farm;
+import br.com.hadryan.agro.manager.domain.farm.FarmActivityService;
+import br.com.hadryan.agro.manager.domain.farm.FarmActivityType;
 import br.com.hadryan.agro.manager.domain.farm.FarmRepository;
 import br.com.hadryan.agro.manager.shared.exception.BusinessException;
 import br.com.hadryan.agro.manager.shared.exception.ResourceNotFoundException;
@@ -28,6 +30,7 @@ public class ExpenseService {
     private final FarmRepository farmRepository;
     private final AccountRepository accountRepository;
     private final AccountMemberRepository accountMemberRepository;
+    private final FarmActivityService activityService;
 
     @Transactional
     public ExpenseResponse create(UUID accountId, UUID farmId, UUID userId, ExpenseRequest request) {
@@ -43,7 +46,16 @@ public class ExpenseService {
                 .notes(request.notes())
                 .build();
 
-        return ExpenseResponse.from(expenseRepository.save(expense));
+        ExpenseResponse saved = ExpenseResponse.from(expenseRepository.save(expense));
+        activityService.record(
+                farmId, userId,
+                FarmActivityType.EXPENSE_CREATED,
+                "Despesa registrada: " + request.description() + " — " +
+                        (request.category() == ExpenseCategory.INSUMO ? "Insumo" : "Serviço") +
+                        " — R$ " + request.value(),
+                saved.id()
+        );
+        return saved;
     }
 
     @Transactional(readOnly = true)
@@ -73,7 +85,14 @@ public class ExpenseService {
         expense.setPaymentDate(request.paymentDate());
         expense.setNotes(request.notes());
 
-        return ExpenseResponse.from(expenseRepository.save(expense));
+        ExpenseResponse updated = ExpenseResponse.from(expenseRepository.save(expense));
+        activityService.record(
+                farmId, userId,
+                FarmActivityType.EXPENSE_UPDATED,
+                "Despesa atualizada: " + request.description(),
+                updated.id()
+        );
+        return updated;
     }
 
     @Transactional
@@ -81,6 +100,14 @@ public class ExpenseService {
         findFarmAndValidate(accountId, farmId, userId);
         Expense expense = findExpense(expenseId, farmId);
         expenseRepository.delete(expense);
+        String expenseDesc = expense.getDescription();
+        expenseRepository.delete(expense);
+        activityService.record(
+                farmId, userId,
+                FarmActivityType.EXPENSE_DELETED,
+                "Despesa removida: " + expenseDesc,
+                expenseId
+        );
     }
 
     /**
@@ -92,7 +119,14 @@ public class ExpenseService {
         findFarmAndValidate(accountId, farmId, userId);
         Expense expense = findExpense(expenseId, farmId);
         expense.setPaymentDate(LocalDate.now());
-        return ExpenseResponse.from(expenseRepository.save(expense));
+        ExpenseResponse paid = ExpenseResponse.from(expenseRepository.save(expense));
+        activityService.record(
+                farmId, userId,
+                FarmActivityType.EXPENSE_PAID,
+                "Despesa marcada como paga: " + expense.getDescription(),
+                paid.id()
+        );
+        return paid;
     }
 
     // ── Utilitários privados ──────────────────────────────────────────────────

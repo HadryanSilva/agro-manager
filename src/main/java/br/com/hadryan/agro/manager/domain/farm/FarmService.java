@@ -24,6 +24,7 @@ public class FarmService {
     private final FarmRepository farmRepository;
     private final AccountRepository accountRepository;
     private final AccountMemberRepository accountMemberRepository;
+    private final FarmActivityService activityService;
 
     @Transactional
     public FarmResponse create(UUID accountId, UUID userId, FarmRequest request) {
@@ -87,7 +88,14 @@ public class FarmService {
         farm.setCancelled(request.cancelled());
         farm.setNotes(request.notes());
 
-        return FarmResponse.from(farmRepository.save(farm));
+        FarmResponse updatedFarm = FarmResponse.from(farmRepository.save(farm));
+        activityService.record(
+                farmId, userId,
+                FarmActivityType.FARM_UPDATED,
+                "Dados da lavoura atualizados",
+                null
+        );
+        return updatedFarm;
     }
 
     @Transactional
