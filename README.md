@@ -45,7 +45,7 @@ O **Agro Manager** é uma plataforma de gestão agrícola desenvolvida para prod
 ## Pré-requisitos
 
 - Java 25+
-- Maven 3.9+
+- Gradle 9.4+
 - Docker e Docker Compose
 - PostgreSQL 16 (ou via Docker)
 
