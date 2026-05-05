@@ -57,20 +57,26 @@ app:
 management:
   endpoints:
     web:
-      # Expõe apenas health e prometheus — não expor env, beans, etc. em produção
       exposure:
         include: health, prometheus, info
       base-path: /actuator
 
   endpoint:
     health:
-      # Mostra detalhes apenas para o Prometheus (rede interna Docker)
       show-details: always
     prometheus:
       enabled: true
 
-  # Adiciona tags comuns a todas as métricas para filtrar no Grafana
   metrics:
     tags:
       application: agro-manager
       environment: production
+    distribution:
+      # Ativa histogramas para http.server.requests — necessário para que o
+      # Prometheus exponha o _bucket e o histogram_quantile funcione no Grafana
+      # (p50, p95, p99 por endpoint). Sem esta config apenas count e sum existem.
+      percentiles-histogram:
+        http.server.requests: true
+      # SLOs de latência — cria buckets fixos para facilitar alertas futuros
+      slo:
+        http.server.requests: 100ms, 300ms, 500ms, 1s, 2s
