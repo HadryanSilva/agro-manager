@@ -1,20 +1,20 @@
 # =============================================================================
 # .github/workflows/deploy.yml — Repositório: agro-manager (backend)
 #
-# Trigger: push na branch main
+# Trigger: push na branch master
 # Etapas:  testes → build da imagem Docker → push no GHCR → deploy no Lightsail
 #
 # Secrets necessários no repositório GitHub:
-#   LIGHTSAIL_HOST     → IP estático do servidor (ex: 54.123.45.67)
+#   LIGHTSAIL_HOST     → IP estático do servidor
 #   LIGHTSAIL_USER     → ubuntu
-#   LIGHTSAIL_SSH_KEY  → conteúdo da chave privada .pem (cat LightsailDefaultKey.pem)
+#   LIGHTSAIL_SSH_KEY  → conteúdo da chave privada
 # =============================================================================
 
 name: CI/CD — Backend
 
 on:
   push:
-    branches: [main]
+    branches: [master]
 
 env:
   # Nome da imagem no GitHub Container Registry
@@ -92,7 +92,7 @@ jobs:
           tags: |
             # Tag com o SHA curto do commit (imutável, rastreável)
             type=sha,prefix=,format=short
-            # Tag latest sempre aponta para o commit mais recente da main
+            # Tag latest sempre aponta para o commit mais recente da master
             type=raw,value=latest
 
       - name: Build e push da imagem
