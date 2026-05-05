@@ -8,9 +8,9 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
- * Convite de acesso a uma conta gerado por OWNER ou ADMIN.
- * O token UUID é compartilhado externamente; o usuário que o aceitar
- * é adicionado como membro com o papel definido em role.
+ * Convite nominal de acesso a uma conta gerado por OWNER ou ADMIN.
+ * O token UUID compõe a URL enviada por e-mail; apenas o usuário cujo
+ * e-mail coincide com invitedEmail pode aceitar o convite.
  *
  * usedAt null     → convite ativo
  * usedAt not null → convite já utilizado
@@ -32,9 +32,13 @@ public class AccountInvite {
     @JoinColumn(name = "account_id", nullable = false)
     private Account account;
 
-    // Token único que compõe a URL de convite compartilhada
+    // Token único que compõe a URL de convite enviada por e-mail
     @Column(nullable = false, unique = true)
     private UUID token;
+
+    // E-mail do destinatário — apenas este e-mail pode aceitar o convite
+    @Column(name = "invited_email", length = 255)
+    private String invitedEmail;
 
     // Papel atribuído ao usuário ao aceitar
     @Enumerated(EnumType.STRING)

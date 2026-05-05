@@ -2,6 +2,7 @@ package br.com.hadryan.agro.manager.domain.account;
 
 import br.com.hadryan.agro.manager.infra.security.UserPrincipal;
 import br.com.hadryan.agro.manager.shared.dto.ApiResponse;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -12,7 +13,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Endpoints de gerenciamento de convites.
+ * Endpoints de gerenciamento de convites nominais por e-mail.
  *
  * /accounts/{id}/invites — criação, listagem e revogação (OWNER/ADMIN)
  * /invites/{token}       — detalhes públicos (GET) e aceite autenticado (POST)
@@ -29,12 +30,14 @@ public class AccountInviteController {
     public ResponseEntity<ApiResponse<AccountInviteResponse>> createInvite(
             @PathVariable UUID accountId,
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestBody AccountInviteRequest request) {
+            @Valid @RequestBody AccountInviteRequest request) {
 
+        // @Valid garante que email e role estão presentes e válidos antes de chegar aqui
         AccountInviteResponse response = inviteService.createInvite(
-                accountId, principal.getId(), request != null ? request : new AccountInviteRequest(null));
+                accountId, principal.getId(), request);
+
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Convite gerado com sucesso", response));
+                .body(ApiResponse.success("Convite enviado com sucesso para " + request.email(), response));
     }
 
     @GetMapping("/accounts/{accountId}/invites")
@@ -73,6 +76,7 @@ public class AccountInviteController {
 
     /**
      * Aceita o convite e adiciona o usuário autenticado como membro da conta.
+     * Valida que o e-mail do usuário autenticado coincide com o e-mail do convite.
      */
     @PostMapping("/invites/{token}/accept")
     public ResponseEntity<ApiResponse<AccountMemberResponse>> acceptInvite(

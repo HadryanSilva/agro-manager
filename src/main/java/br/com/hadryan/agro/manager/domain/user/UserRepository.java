@@ -3,6 +3,7 @@ package br.com.hadryan.agro.manager.domain.user;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import javax.swing.text.html.Option;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -10,6 +11,8 @@ import java.util.UUID;
 public interface UserRepository extends JpaRepository<User, UUID> {
 
     Optional<User> findByEmail(String email);
+
+    Optional<User> findByEmailIgnoreCase(String username);
 
     boolean existsByEmail(String email);
 
