@@ -7,7 +7,7 @@ import java.util.UUID;
 
 /**
  * Representação completa de uma despesa retornada ao cliente.
- * O campo paid é derivado da presença de paymentDate.
+ * farmId e farmName são nulos para despesas gerais da conta.
  */
 public record ExpenseResponse(
         UUID id,
@@ -18,6 +18,8 @@ public record ExpenseResponse(
         LocalDate paymentDate,
         boolean paid,
         String notes,
+        UUID farmId,
+        String farmName,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
@@ -31,6 +33,8 @@ public record ExpenseResponse(
                 expense.getPaymentDate(),
                 expense.isPaid(),
                 expense.getNotes(),
+                expense.getFarm() != null ? expense.getFarm().getId() : null,
+                expense.getFarm() != null ? expense.getFarm().getName() : null,
                 expense.getCreatedAt(),
                 expense.getUpdatedAt()
         );

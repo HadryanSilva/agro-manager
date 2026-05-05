@@ -19,7 +19,8 @@ import java.util.UUID;
 
 /**
  * Serviço de listagem consolidada de transações de uma conta.
- * Todos os filtros são opcionais — a ausência de um filtro retorna todos os registros.
+ * Todos os filtros são opcionais — a ausência retorna todos os registros.
+ * O filtro 'general' permite isolar despesas gerais da conta.
  */
 @Service
 @RequiredArgsConstructor
@@ -34,6 +35,7 @@ public class TransactionService {
             UUID accountId,
             UUID userId,
             UUID farmId,
+            Boolean general,
             ExpenseCategory category,
             Boolean paid,
             LocalDate startDate,
@@ -41,7 +43,6 @@ public class TransactionService {
             int page,
             int size
     ) {
-        // Valida existência da conta e membership do usuário
         accountRepository.findById(accountId)
                 .orElseThrow(() -> new ResourceNotFoundException("Conta", "id", accountId));
 
@@ -52,11 +53,10 @@ public class TransactionService {
         Pageable pageable = PageRequest.of(page, size);
 
         Page<Expense> resultPage = expenseRepository.findTransactions(
-                accountId, farmId, category, paid, startDate, endDate, pageable);
+                accountId, farmId, general, category, paid, startDate, endDate, pageable);
 
-        // Total financeiro do resultado filtrado (todas as páginas, não só a atual)
         BigDecimal totalFiltered = expenseRepository.sumTransactions(
-                accountId, farmId, category, paid, startDate, endDate);
+                accountId, farmId, general, category, paid, startDate, endDate);
 
         return PageResponse.of(
                 resultPage.map(TransactionResponse::from),

@@ -7,9 +7,11 @@ import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.UUID;
 
 /**
  * Payload de entrada para criação e atualização de despesas.
+ * farmId é opcional — quando nulo, a despesa é geral da conta.
  * paymentDate nulo indica despesa a pagar; preenchido indica pago.
  */
 public record ExpenseRequest(
@@ -31,5 +33,8 @@ public record ExpenseRequest(
         // Opcional — preenchido quando o pagamento já foi realizado
         LocalDate paymentDate,
 
-        String notes
+        String notes,
+
+        // Opcional — null indica despesa geral da conta (sem lavoura vinculada)
+        UUID farmId
 ) {}

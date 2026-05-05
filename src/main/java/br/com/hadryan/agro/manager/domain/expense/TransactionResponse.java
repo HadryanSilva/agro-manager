@@ -25,8 +25,8 @@ public record TransactionResponse(
     public static TransactionResponse from(Expense expense) {
         return new TransactionResponse(
                 expense.getId(),
-                expense.getFarm().getId(),
-                expense.getFarm().getName(),
+                expense.getFarm() != null ? expense.getFarm().getId()   : null,
+                expense.getFarm() != null ? expense.getFarm().getName() : null,
                 expense.getDescription(),
                 expense.getCategory(),
                 expense.getValue(),

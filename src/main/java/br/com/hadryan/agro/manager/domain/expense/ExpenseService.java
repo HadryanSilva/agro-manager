@@ -1,5 +1,6 @@
 package br.com.hadryan.agro.manager.domain.expense;
 
+import br.com.hadryan.agro.manager.domain.account.Account;
 import br.com.hadryan.agro.manager.domain.account.AccountMemberRepository;
 import br.com.hadryan.agro.manager.domain.account.AccountRepository;
 import br.com.hadryan.agro.manager.domain.farm.Farm;
@@ -18,9 +19,11 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Serviço de gerenciamento de despesas por lavoura.
- * Todas as operações validam membership do usuário na conta
- * e que a lavoura pertence à conta antes de prosseguir.
+ * Serviço de gerenciamento de despesas.
+ * Suporta dois tipos:
+ *  - Despesas de lavoura: farmId obrigatório no path
+ *  - Despesas gerais da conta: farmId nulo
+ * Todas as operações validam membership do usuário na conta.
  */
 @Service
 @RequiredArgsConstructor
@@ -31,6 +34,8 @@ public class ExpenseService {
     private final AccountRepository accountRepository;
     private final AccountMemberRepository accountMemberRepository;
     private final FarmActivityService activityService;
+
+    // ── Despesas de lavoura (farmId obrigatório) ──────────────────────────────
 
     @Transactional
     public ExpenseResponse create(UUID accountId, UUID farmId, UUID userId, ExpenseRequest request) {
@@ -99,7 +104,6 @@ public class ExpenseService {
     public void delete(UUID accountId, UUID farmId, UUID userId, UUID expenseId) {
         findFarmAndValidate(accountId, farmId, userId);
         Expense expense = findExpense(expenseId, farmId);
-        expenseRepository.delete(expense);
         String expenseDesc = expense.getDescription();
         expenseRepository.delete(expense);
         activityService.record(
@@ -110,10 +114,6 @@ public class ExpenseService {
         );
     }
 
-    /**
-     * Registra o pagamento de uma despesa com a data atual.
-     * Idempotente — se já estiver paga, apenas atualiza a data para hoje.
-     */
     @Transactional
     public ExpenseResponse markAsPaid(UUID accountId, UUID farmId, UUID userId, UUID expenseId) {
         findFarmAndValidate(accountId, farmId, userId);
@@ -129,25 +129,97 @@ public class ExpenseService {
         return paid;
     }
 
-    // ── Utilitários privados ──────────────────────────────────────────────────
+    // ── Despesas gerais da conta (sem lavoura) ────────────────────────────────
 
-    private Farm findFarmAndValidate(UUID accountId, UUID farmId, UUID userId) {
-        // Valida existência da conta
-        accountRepository.findById(accountId)
+    @Transactional
+    public ExpenseResponse createGeneral(UUID accountId, UUID userId, ExpenseRequest request) {
+        Account account = accountRepository.findById(accountId)
                 .orElseThrow(() -> new ResourceNotFoundException("Conta", "id", accountId));
 
-        // Valida membership do usuário autenticado
         if (!accountMemberRepository.existsByAccountIdAndUserId(accountId, userId)) {
             throw new BusinessException("Acesso negado a esta conta", HttpStatus.FORBIDDEN);
         }
 
-        // Valida que a lavoura pertence à conta
+        Expense expense = Expense.builder()
+                .account(account)
+                .farm(null)
+                .description(request.description())
+                .category(request.category())
+                .value(request.value())
+                .competenceDate(request.competenceDate())
+                .paymentDate(request.paymentDate())
+                .notes(request.notes())
+                .build();
+
+        return ExpenseResponse.from(expenseRepository.save(expense));
+    }
+
+    @Transactional(readOnly = true)
+    public ExpenseResponse findGeneralById(UUID accountId, UUID userId, UUID expenseId) {
+        validateMembership(accountId, userId);
+        return ExpenseResponse.from(findGeneralExpense(expenseId, accountId));
+    }
+
+    @Transactional
+    public ExpenseResponse updateGeneral(UUID accountId, UUID userId, UUID expenseId, ExpenseRequest request) {
+        validateMembership(accountId, userId);
+        Expense expense = findGeneralExpense(expenseId, accountId);
+
+        expense.setDescription(request.description());
+        expense.setCategory(request.category());
+        expense.setValue(request.value());
+        expense.setCompetenceDate(request.competenceDate());
+        expense.setPaymentDate(request.paymentDate());
+        expense.setNotes(request.notes());
+
+        return ExpenseResponse.from(expenseRepository.save(expense));
+    }
+
+    @Transactional
+    public void deleteGeneral(UUID accountId, UUID userId, UUID expenseId) {
+        validateMembership(accountId, userId);
+        Expense expense = findGeneralExpense(expenseId, accountId);
+        expenseRepository.delete(expense);
+    }
+
+    @Transactional
+    public ExpenseResponse markGeneralAsPaid(UUID accountId, UUID userId, UUID expenseId) {
+        validateMembership(accountId, userId);
+        Expense expense = findGeneralExpense(expenseId, accountId);
+        expense.setPaymentDate(LocalDate.now());
+        return ExpenseResponse.from(expenseRepository.save(expense));
+    }
+
+    // ── Utilitários privados ──────────────────────────────────────────────────
+
+    private Farm findFarmAndValidate(UUID accountId, UUID farmId, UUID userId) {
+        accountRepository.findById(accountId)
+                .orElseThrow(() -> new ResourceNotFoundException("Conta", "id", accountId));
+
+        if (!accountMemberRepository.existsByAccountIdAndUserId(accountId, userId)) {
+            throw new BusinessException("Acesso negado a esta conta", HttpStatus.FORBIDDEN);
+        }
+
         return farmRepository.findByIdAndAccountId(farmId, accountId)
                 .orElseThrow(() -> new ResourceNotFoundException("Lavoura", "id", farmId));
     }
 
+    private void validateMembership(UUID accountId, UUID userId) {
+        accountRepository.findById(accountId)
+                .orElseThrow(() -> new ResourceNotFoundException("Conta", "id", accountId));
+
+        if (!accountMemberRepository.existsByAccountIdAndUserId(accountId, userId)) {
+            throw new BusinessException("Acesso negado a esta conta", HttpStatus.FORBIDDEN);
+        }
+    }
+
     private Expense findExpense(UUID expenseId, UUID farmId) {
         return expenseRepository.findByIdAndFarmId(expenseId, farmId)
+                .orElseThrow(() -> new ResourceNotFoundException("Despesa", "id", expenseId));
+    }
+
+    private Expense findGeneralExpense(UUID expenseId, UUID accountId) {
+        return expenseRepository.findByIdAndAccountIdAndFarmIsNull(expenseId, accountId)
                 .orElseThrow(() -> new ResourceNotFoundException("Despesa", "id", expenseId));
     }
 }

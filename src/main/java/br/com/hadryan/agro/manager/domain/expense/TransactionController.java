@@ -14,6 +14,7 @@ import java.util.UUID;
 
 /**
  * Endpoint para listagem consolidada de transações (despesas) de uma conta.
+ * Inclui tanto despesas de lavoura quanto despesas gerais da conta.
  * Todos os filtros são opcionais via query params.
  */
 @RestController
@@ -27,6 +28,7 @@ public class TransactionController {
      * Lista transações paginadas com filtros opcionais.
      *
      * @param farmId    filtra por lavoura específica
+     * @param general   true = apenas despesas gerais (sem lavoura) | false = apenas de lavouras
      * @param category  INSUMO | SERVICO
      * @param paid      true = apenas pagas | false = apenas pendentes
      * @param startDate data de competência inicial (inclusive)
@@ -39,6 +41,7 @@ public class TransactionController {
             @PathVariable UUID accountId,
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) UUID farmId,
+            @RequestParam(required = false) Boolean general,
             @RequestParam(required = false) ExpenseCategory category,
             @RequestParam(required = false) Boolean paid,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
@@ -46,12 +49,11 @@ public class TransactionController {
             @RequestParam(defaultValue = "0")  int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        // Limita o tamanho máximo de página para evitar sobrecarga
         int safeSize = Math.min(size, 100);
 
         PageResponse<TransactionResponse> result = transactionService.getTransactions(
                 accountId, principal.getId(),
-                farmId, category, paid, startDate, endDate,
+                farmId, general, category, paid, startDate, endDate,
                 page, safeSize
         );
 
