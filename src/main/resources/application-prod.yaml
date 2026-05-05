@@ -36,6 +36,34 @@ spring:
             # O Nginx remove o prefixo /api antes de encaminhar ao backend
             redirect-uri: "${FRONTEND_URL}/api/login/oauth2/code/google"
 
+  # ── Thymeleaf ───────────────────────────────────────────────────────────────
+  # Usado exclusivamente para renderizar templates de e-mail em src/main/resources/templates/
+  # Não interfere nos endpoints REST pois todos os controllers são @RestController
+  thymeleaf:
+    prefix: classpath:/templates/
+    suffix: .html
+    mode: HTML
+    encoding: UTF-8
+    # Cache habilitado em produção — templates são compilados apenas uma vez
+    cache: true
+
+  # ── E-mail transacional ─────────────────────────────────────────────────────
+  # Provedor padrão: Resend (resend.com) — gratuito até 3.000 e-mails/mês
+  mail:
+    host: ${MAIL_HOST:smtp.resend.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:resend}
+    password: ${MAIL_PASSWORD}
+    default-encoding: UTF-8
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+        debug: false
+
 server:
   # Necessário para que o Spring resolva corretamente as URLs atrás do Nginx
   # e gere os redirect URIs do OAuth2 com o domínio público correto
@@ -49,6 +77,9 @@ app:
   cors:
     allowed-origins: ${FRONTEND_URL}
   frontend-url: ${FRONTEND_URL}
+  mail:
+    from-name: ${MAIL_FROM_NAME}
+    from-address: ${MAIL_FROM_ADDRESS}
 
 
 # =============================================================================

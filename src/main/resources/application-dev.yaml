@@ -31,6 +31,22 @@ spring:
               - profile
             redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
 
+  # ── E-mail transacional ─────────────────────────────────────────────────────
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:dev}
+    password: ${MAIL_PASSWORD:foo}
+    default-encoding: UTF-8
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+        debug: false
+
 app:
   jwt:
     # Mínimo 32 caracteres para HS256 — trocar em produção
@@ -40,3 +56,6 @@ app:
   cors:
     allowed-origins: http://localhost:5173
   frontend-url: http://localhost:5173
+  mail:
+    from-name: ${MAIL_FROM_NAME:Agro Manager}
+    from-address: ${MAIL_FROM_ADDRESS:john.doe@email.com}

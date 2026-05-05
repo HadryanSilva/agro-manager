@@ -2,9 +2,11 @@ package br.com.hadryan.agro.manager.domain.account;
 
 import br.com.hadryan.agro.manager.domain.user.User;
 import br.com.hadryan.agro.manager.domain.user.UserRepository;
+import br.com.hadryan.agro.manager.infra.mail.EmailService;
 import br.com.hadryan.agro.manager.shared.exception.BusinessException;
 import br.com.hadryan.agro.manager.shared.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -15,21 +17,22 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Serviço responsável pelo ciclo de vida dos convites de conta.
+ * Serviço de convites nominais por e-mail.
  * Apenas OWNER e ADMIN podem gerar e revogar convites.
- * O aceite pode ser feito por qualquer usuário autenticado que possua o token.
+ * O aceite exige que o e-mail do usuário autenticado coincida com o do convite.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AccountInviteService {
 
-    // Validade padrão de um convite em dias
     private static final int INVITE_EXPIRY_DAYS = 7;
 
     private final AccountInviteRepository inviteRepository;
     private final AccountMemberRepository memberRepository;
     private final AccountRepository accountRepository;
     private final UserRepository userRepository;
+    private final EmailService emailService;
 
     @Value("${app.frontend-url}")
     private String frontendUrl;
@@ -38,27 +41,56 @@ public class AccountInviteService {
     public AccountInviteResponse createInvite(UUID accountId, UUID userId, AccountInviteRequest request) {
         requireAdminOrOwner(accountId, userId);
 
+        AccountRole role = request.roleOrDefault();
+        if (role == AccountRole.OWNER) {
+            throw new BusinessException("Não é permitido convidar diretamente como OWNER");
+        }
+
+        String invitedEmail = request.email().trim().toLowerCase();
+
+        // Verifica se o e-mail já é membro da conta
+        userRepository.findByEmailIgnoreCase(invitedEmail).ifPresent(existingUser -> {
+            if (memberRepository.existsByAccountIdAndUserId(accountId, existingUser.getId())) {
+                throw new BusinessException(
+                        "O e-mail " + invitedEmail + " já é membro desta conta");
+            }
+        });
+
+        // Verifica se já existe convite ativo para este e-mail nesta conta
+        if (inviteRepository.existsActiveInviteByEmail(accountId, invitedEmail, LocalDateTime.now())) {
+            throw new BusinessException(
+                    "Já existe um convite ativo para " + invitedEmail + ". Revogue-o antes de enviar um novo.");
+        }
+
         Account account = accountRepository.findById(accountId)
                 .orElseThrow(() -> new ResourceNotFoundException("Conta", "id", accountId));
 
         User creator = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuário", "id", userId));
 
-        // Não permite gerar convite para papel OWNER via API
-        AccountRole role = request.roleOrDefault();
-        if (role == AccountRole.OWNER) {
-            throw new BusinessException("Não é permitido convidar diretamente como OWNER");
-        }
-
         AccountInvite invite = AccountInvite.builder()
                 .account(account)
                 .token(UUID.randomUUID())
+                .invitedEmail(invitedEmail)
                 .role(role)
                 .createdBy(creator)
                 .expiresAt(LocalDateTime.now().plusDays(INVITE_EXPIRY_DAYS))
                 .build();
 
-        return AccountInviteResponse.from(inviteRepository.save(invite), frontendUrl);
+        AccountInvite saved = inviteRepository.save(invite);
+        AccountInviteResponse response = AccountInviteResponse.from(saved, frontendUrl);
+
+        // Envia o e-mail — falhas são logadas mas não bloqueiam a criação do convite
+        emailService.sendInviteEmail(
+                invitedEmail,
+                account.getName(),
+                creator.getName(),
+                role.name(),
+                response.inviteUrl(),
+                saved.getExpiresAt()
+        );
+
+        return response;
     }
 
     @Transactional(readOnly = true)
@@ -77,7 +109,6 @@ public class AccountInviteService {
         AccountInvite invite = inviteRepository.findById(inviteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Convite", "id", inviteId));
 
-        // Garante que o convite pertence à conta informada
         if (!invite.getAccount().getId().equals(accountId)) {
             throw new ResourceNotFoundException("Convite", "id", inviteId);
         }
@@ -85,10 +116,6 @@ public class AccountInviteService {
         inviteRepository.delete(invite);
     }
 
-    /**
-     * Retorna detalhes de um convite pelo token — endpoint público para o frontend
-     * exibir informações antes do usuário fazer login.
-     */
     @Transactional(readOnly = true)
     public AccountInviteResponse getInviteDetails(UUID token) {
         AccountInvite invite = findActiveInvite(token);
@@ -97,22 +124,30 @@ public class AccountInviteService {
 
     /**
      * Aceita um convite e adiciona o usuário autenticado como membro da conta.
-     * Idempotente — se o usuário já for membro, apenas marca o convite como utilizado.
+     * Valida que o e-mail do usuário autenticado coincide com o e-mail do convite.
      */
     @Transactional
     public AccountMemberResponse acceptInvite(UUID token, UUID userId) {
         AccountInvite invite = findActiveInvite(token);
-        Account account = invite.getAccount();
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuário", "id", userId));
 
-        // Verifica se o usuário já é membro da conta
+        // Valida que o usuário autenticado é o destinatário do convite
+        if (invite.getInvitedEmail() != null &&
+                !invite.getInvitedEmail().equalsIgnoreCase(user.getEmail())) {
+            throw new BusinessException(
+                    "Este convite foi enviado para " + invite.getInvitedEmail() +
+                            ". Faça login com o e-mail correto para aceitá-lo.",
+                    HttpStatus.FORBIDDEN);
+        }
+
+        Account account = invite.getAccount();
+
         if (memberRepository.existsByAccountIdAndUserId(account.getId(), userId)) {
             throw new BusinessException("Você já é membro desta conta");
         }
 
-        // Adiciona o usuário como membro com o papel definido no convite
         AccountMember member = AccountMember.builder()
                 .account(account)
                 .user(user)
@@ -121,7 +156,6 @@ public class AccountInviteService {
 
         memberRepository.save(member);
 
-        // Marca o convite como utilizado
         invite.setUsedAt(LocalDateTime.now());
         inviteRepository.save(invite);
 

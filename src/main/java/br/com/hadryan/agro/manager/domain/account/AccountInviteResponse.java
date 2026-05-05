@@ -5,13 +5,14 @@ import java.util.UUID;
 
 /**
  * Representação de um convite retornada ao cliente.
- * inviteUrl é a URL completa para compartilhar externamente.
+ * inviteUrl é a URL completa enviada por e-mail ao destinatário.
  */
 public record AccountInviteResponse(
         UUID id,
         UUID token,
         String accountName,
         AccountRole role,
+        String invitedEmail,
         String createdByName,
         LocalDateTime expiresAt,
         boolean used,
@@ -24,6 +25,7 @@ public record AccountInviteResponse(
                 invite.getToken(),
                 invite.getAccount().getName(),
                 invite.getRole(),
+                invite.getInvitedEmail(),
                 invite.getCreatedBy().getName(),
                 invite.getExpiresAt(),
                 invite.isUsed(),
