@@ -1,78 +1,64 @@
 # =============================================================================
 # .github/workflows/deploy.yml — Repositório: agro-manager (backend)
 #
-# Trigger: push na branch master
-# Etapas:  testes → build da imagem Docker → push no GHCR → deploy no Lightsail
+# Responsabilidade: build da imagem Docker, push no GHCR e deploy no Lightsail
 #
-# Secrets necessários no repositório GitHub:
+# Trigger: conclusão bem-sucedida do workflow "CI — Backend" na branch master
+#   → Garante que o deploy NUNCA ocorre sem os testes passarem
+#   → Feature branches e PRs rodam apenas o CI, sem acionar o deploy
+#
+# Secrets necessários:
 #   LIGHTSAIL_HOST     → IP estático do servidor
 #   LIGHTSAIL_USER     → ubuntu
-#   LIGHTSAIL_SSH_KEY  → conteúdo da chave privada
+#   LIGHTSAIL_SSH_KEY  → conteúdo do arquivo .pem
 # =============================================================================
 
-name: CI/CD — Backend
+name: Deploy — Backend
 
 on:
-  push:
+  workflow_run:
+    # Nome exato do workflow de CI definido em ci.yml
+    workflows: ["CI — Backend"]
     branches: [master]
+    # Só dispara quando o CI concluir com sucesso
+    types: [completed]
 
 env:
-  # Nome da imagem no GitHub Container Registry
   IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/agro-manager-backend
 
 jobs:
 
   # ---------------------------------------------------------------------------
-  # JOB 1: Testes de integração com Testcontainers
+  # Guarda de segurança — cancela toda a execução se o CI falhou
+  # Necessário pois o workflow_run não filtra por conclusão automaticamente
   # ---------------------------------------------------------------------------
-  test:
-    name: Testes
+  check-ci:
+    name: Verificar resultado do CI
     runs-on: ubuntu-latest
-
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
-      - name: Checkout do código
-        uses: actions/checkout@v4
-
-      - name: Configurar Java 25
-        uses: actions/setup-java@v4
-        with:
-          java-version: '25'
-          distribution: 'temurin'
-          cache: gradle
-
-      - name: Permissão no Gradle wrapper
-        run: chmod +x gradlew
-
-      - name: Executar testes
-        # Testcontainers sobe um PostgreSQL real via Docker do runner
-        run: ./gradlew test --no-daemon
-
-      - name: Publicar relatório de testes
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: test-results
-          path: build/reports/tests/
+      - name: CI passou — prosseguindo com o deploy
+        run: echo "CI concluído com sucesso. Iniciando build e deploy."
 
   # ---------------------------------------------------------------------------
-  # JOB 2: Build da imagem Docker e push no GHCR
+  # Build da imagem Docker e push no GHCR
   # ---------------------------------------------------------------------------
   build:
     name: Build e push da imagem
     runs-on: ubuntu-latest
-    needs: test
+    needs: check-ci
 
     permissions:
       contents: read
       packages: write
 
-    outputs:
-      # Passa o SHA da imagem para o job de deploy garantir imutabilidade
-      image_tag: ${{ steps.meta.outputs.version }}
-
     steps:
       - name: Checkout do código
+        # Faz checkout do commit que disparou o CI (não o HEAD atual)
+        # garantindo que buildamos exatamente o código que foi testado
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Login no GitHub Container Registry
         uses: docker/login-action@v3
@@ -81,18 +67,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Configurar Docker Buildx (build multiplataforma)
+      - name: Configurar Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Extrair metadados da imagem (tags e labels)
+      - name: Extrair metadados da imagem
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.IMAGE_NAME }}
           tags: |
-            # Tag com o SHA curto do commit (imutável, rastreável)
-            type=sha,prefix=,format=short
-            # Tag latest sempre aponta para o commit mais recente da master
+            # SHA curto do commit — imutável e rastreável
+            type=sha,prefix=,format=short,enable=true
+            # latest aponta sempre para o deploy mais recente na master
             type=raw,value=latest
 
       - name: Build e push da imagem
@@ -102,12 +88,12 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          # Cache entre builds para acelerar compilação Java
+          # Cache entre builds — reduz tempo de compilação Java de ~4min para ~1min
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
   # ---------------------------------------------------------------------------
-  # JOB 3: Deploy no servidor via SSH
+  # Deploy no servidor via SSH
   # ---------------------------------------------------------------------------
   deploy:
     name: Deploy no Lightsail
@@ -121,22 +107,22 @@ jobs:
           host: ${{ secrets.LIGHTSAIL_HOST }}
           username: ${{ secrets.LIGHTSAIL_USER }}
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
-          # Timeout generoso para o docker pull da imagem Java (~300 MB)
           command_timeout: 10m
           script: |
             set -e
 
             cd ~/agro-manager
 
-            # Autentica no GHCR para fazer pull da imagem privada
+            # Autentica no GHCR para pull da imagem privada
             echo "${{ secrets.GITHUB_TOKEN }}" | \
               docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-            # Atualiza apenas o backend sem derrubar o frontend
+            # Pull da nova imagem e restart apenas do backend
+            # O frontend continua rodando sem interrupção
             docker compose -f docker-compose.prod.yaml pull backend
             docker compose -f docker-compose.prod.yaml up -d --no-deps backend
 
-            # Remove imagens antigas para liberar espaço em disco
+            # Remove imagens antigas para liberar espaço no disco de 60 GB
             docker image prune -f
 
-            echo "Deploy do backend concluído: $(date)"
+            echo "Deploy concluído: $(date) — commit ${{ github.event.workflow_run.head_sha }}"

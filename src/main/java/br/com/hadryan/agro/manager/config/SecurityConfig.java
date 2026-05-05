@@ -67,7 +67,13 @@ public class SecurityConfig {
                                 "/login/oauth2/**",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
-                                "/swagger-ui.html"
+                                "/swagger-ui.html",
+                                // Actuator — acessível apenas pela rede interna Docker
+                                // A porta 8080 não é exposta ao host, apenas ao nginx
+                                // que não faz proxy de /actuator, garantindo isolamento
+                                "/actuator/health",
+                                "/actuator/prometheus",
+                                "/actuator/info"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/invites/**").permitAll()
                         .anyRequest().authenticated()

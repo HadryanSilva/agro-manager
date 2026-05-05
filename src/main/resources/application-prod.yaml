@@ -49,3 +49,28 @@ app:
   cors:
     allowed-origins: ${FRONTEND_URL}
   frontend-url: ${FRONTEND_URL}
+
+
+# =============================================================================
+# Observabilidade — Actuator + Micrometer Prometheus
+# =============================================================================
+management:
+  endpoints:
+    web:
+      # Expõe apenas health e prometheus — não expor env, beans, etc. em produção
+      exposure:
+        include: health, prometheus, info
+      base-path: /actuator
+
+  endpoint:
+    health:
+      # Mostra detalhes apenas para o Prometheus (rede interna Docker)
+      show-details: always
+    prometheus:
+      enabled: true
+
+  # Adiciona tags comuns a todas as métricas para filtrar no Grafana
+  metrics:
+    tags:
+      application: agro-manager
+      environment: production
