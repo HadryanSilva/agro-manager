@@ -38,7 +38,7 @@ O **Agro Manager** é uma plataforma de gestão agrícola desenvolvida para prod
 - **Java 25** + **Spring Boot 4**
 - **Spring Security** — JWT stateless + OAuth2 Google
 - **Spring Data JPA** + **Hibernate**
-- **PostgreSQL 16** + **Flyway** (migrations V1–V8)
+- **PostgreSQL 17** + **Flyway**
 - **Lombok** + **MapStruct**
 - **Docker** multi-stage (eclipse-temurin:25)
 
