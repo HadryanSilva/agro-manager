@@ -3,9 +3,9 @@
 #
 # Responsabilidade: build da imagem Docker, push no GHCR e deploy no Lightsail
 #
-# Trigger: conclusão bem-sucedida do workflow "CI — Backend" na branch master
-#   → Garante que o deploy NUNCA ocorre sem os testes passarem
-#   → Feature branches e PRs rodam apenas o CI, sem acionar o deploy
+# Triggers:
+#   - push na master  → disparado automaticamente quando um PR é mergeado
+#   - workflow_dispatch → disparo manual pela aba Actions do GitHub
 #
 # Secrets necessários:
 #   LIGHTSAIL_HOST     → IP estático do servidor
@@ -16,12 +16,21 @@
 name: Deploy — Backend
 
 on:
-  workflow_run:
-    # Nome exato do workflow de CI definido em ci.yml
-    workflows: ["CI — Backend"]
+  push:
     branches: [master]
-    # Só dispara quando o CI concluir com sucesso
-    types: [completed]
+    # Não dispara para mudanças que não afetam o código
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+      - '.github/workflows/ci.yml'
+
+  # Permite disparar o deploy manualmente pela aba Actions
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Motivo do deploy manual'
+        required: false
+        default: 'Deploy manual sem motivo especificado'
 
 env:
   IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/agro-manager-backend
@@ -29,36 +38,30 @@ env:
 jobs:
 
   # ---------------------------------------------------------------------------
-  # Guarda de segurança — cancela toda a execução se o CI falhou
-  # Necessário pois o workflow_run não filtra por conclusão automaticamente
-  # ---------------------------------------------------------------------------
-  check-ci:
-    name: Verificar resultado do CI
-    runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    steps:
-      - name: CI passou — prosseguindo com o deploy
-        run: echo "CI concluído com sucesso. Iniciando build e deploy."
-
-  # ---------------------------------------------------------------------------
   # Build da imagem Docker e push no GHCR
   # ---------------------------------------------------------------------------
   build:
     name: Build e push da imagem
     runs-on: ubuntu-latest
-    needs: check-ci
 
     permissions:
       contents: read
       packages: write
 
     steps:
+      - name: Exibir informações do disparo
+        run: |
+          echo "Trigger: ${{ github.event_name }}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Motivo: ${{ inputs.reason }}"
+            echo "Disparado por: ${{ github.actor }}"
+          else
+            echo "Commit: ${{ github.sha }}"
+            echo "Mensagem: ${{ github.event.head_commit.message }}"
+          fi
+
       - name: Checkout do código
-        # Faz checkout do commit que disparou o CI (não o HEAD atual)
-        # garantindo que buildamos exatamente o código que foi testado
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Login no GitHub Container Registry
         uses: docker/login-action@v3
@@ -76,9 +79,7 @@ jobs:
         with:
           images: ${{ env.IMAGE_NAME }}
           tags: |
-            # SHA curto do commit — imutável e rastreável
-            type=sha,prefix=,format=short,enable=true
-            # latest aponta sempre para o deploy mais recente na master
+            type=sha,prefix=,format=short
             type=raw,value=latest
 
       - name: Build e push da imagem
@@ -88,7 +89,6 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          # Cache entre builds — reduz tempo de compilação Java de ~4min para ~1min
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -113,16 +113,14 @@ jobs:
 
             cd ~/agro-manager
 
-            # Autentica no GHCR para pull da imagem privada
             echo "${{ secrets.GITHUB_TOKEN }}" | \
               docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-            # Pull da nova imagem e restart apenas do backend
-            # O frontend continua rodando sem interrupção
             docker compose -f docker-compose.prod.yaml pull backend
             docker compose -f docker-compose.prod.yaml up -d --no-deps backend
 
-            # Remove imagens antigas para liberar espaço no disco de 60 GB
             docker image prune -f
 
-            echo "Deploy concluído: $(date) — commit ${{ github.event.workflow_run.head_sha }}"
+            echo "Deploy concluído: $(date)"
+            echo "Commit: ${{ github.sha }}"
+            echo "Disparado por: ${{ github.actor }}"
