@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
+import org.springframework.security.oauth2.client.http.OAuth2ErrorResponseErrorHandler;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
@@ -33,13 +34,20 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
     private final CloseableHttpClient oauth2HttpClient;
 
     /**
-     * Substitui o RestTemplate padrão (SimpleClientHttpRequestFactory) pelo
-     * Apache HttpClient com pool de conexões, evitando OutOfMemoryError causado
-     * pela criação de uma nova thread SSL por requisição.
+     * Substitui o SimpleClientHttpRequestFactory padrão pelo Apache HttpClient
+     * com pool de conexões, evitando OutOfMemoryError causado pela criação de
+     * uma nova thread SSL por requisição.
+     *
+     * O OAuth2ErrorResponseErrorHandler é explicitamente preservado para que
+     * respostas de erro do endpoint userinfo continuem sendo convertidas em
+     * OAuth2AuthenticationException, mantendo o comportamento padrão do Spring Security.
      */
     @PostConstruct
     public void init() {
-        setRestOperations(new RestTemplate(new HttpComponentsClientHttpRequestFactory(oauth2HttpClient)));
+        RestTemplate restTemplate = new RestTemplate(
+                new HttpComponentsClientHttpRequestFactory(oauth2HttpClient));
+        restTemplate.setErrorHandler(new OAuth2ErrorResponseErrorHandler());
+        setRestOperations(restTemplate);
     }
 
     @Override
