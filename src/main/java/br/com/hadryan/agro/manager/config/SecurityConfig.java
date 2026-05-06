@@ -9,7 +9,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -59,6 +58,11 @@ public class SecurityConfig {
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
+                // Registra o DaoAuthenticationProvider localmente no HttpSecurity,
+                // sem expô-lo como @Bean — elimina o WARN do Spring Security sobre
+                // ambiguidade entre AuthenticationProvider e UserDetailsService beans
+                .authenticationProvider(daoAuthenticationProvider())
+
                 // Definição de rotas públicas e protegidas
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
@@ -68,9 +72,6 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
-                                // Actuator — acessível apenas pela rede interna Docker
-                                // A porta 8080 não é exposta ao host, apenas ao nginx
-                                // que não faz proxy de /actuator, garantindo isolamento
                                 "/actuator/health",
                                 "/actuator/prometheus",
                                 "/actuator/info"
@@ -107,8 +108,10 @@ public class SecurityConfig {
         return source;
     }
 
-    @Bean
-    public AuthenticationProvider authenticationProvider() {
+    // Método privado — não é um @Bean, apenas configura o provider localmente
+    // O AuthService recebe o AuthenticationManager via AuthenticationConfiguration,
+    // que enxerga o provider registrado no HttpSecurity acima
+    private DaoAuthenticationProvider daoAuthenticationProvider() {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
         provider.setPasswordEncoder(passwordEncoder());
         return provider;

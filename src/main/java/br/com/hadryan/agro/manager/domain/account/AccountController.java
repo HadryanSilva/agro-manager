@@ -10,10 +10,10 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
- * Endpoints autenticados para gerenciamento de contas.
- * Todos os endpoints exigem um JWT válido no header Authorization.
+ * Endpoints de gerenciamento de contas do usuário autenticado.
  */
 @RestController
 @RequestMapping("/accounts")
@@ -22,9 +22,6 @@ public class AccountController {
 
     private final AccountService accountService;
 
-    /**
-     * Cria uma nova conta e automaticamente torna o usuário autenticado seu OWNER.
-     */
     @PostMapping
     public ResponseEntity<ApiResponse<AccountResponse>> createAccount(
             @AuthenticationPrincipal UserPrincipal principal,
@@ -35,14 +32,26 @@ public class AccountController {
                 .body(ApiResponse.success("Conta criada com sucesso", response));
     }
 
-    /**
-     * Retorna todas as contas das quais o usuário autenticado é membro.
-     */
-    @GetMapping("/me")
+    @GetMapping
     public ResponseEntity<ApiResponse<List<AccountResponse>>> getUserAccounts(
             @AuthenticationPrincipal UserPrincipal principal) {
 
         List<AccountResponse> accounts = accountService.getUserAccounts(principal.getId());
         return ResponseEntity.ok(ApiResponse.success(accounts));
+    }
+
+    /**
+     * Exclui permanentemente a conta e todos os seus dados.
+     * Restrição: apenas o OWNER pode executar esta operação.
+     * O body deve conter o nome exato da conta como confirmação.
+     */
+    @DeleteMapping("/{accountId}")
+    public ResponseEntity<ApiResponse<Void>> deleteAccount(
+            @PathVariable UUID accountId,
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody DeleteAccountRequest request) {
+
+        accountService.deleteAccount(accountId, principal.getId(), request);
+        return ResponseEntity.ok(ApiResponse.success("Conta excluída permanentemente", null));
     }
 }
