@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit;
 @Configuration
 public class OAuth2HttpClientConfig {
 
-    @Bean(destroyMethod = "shutdown")
+    @Bean(destroyMethod = "close")
     public PoolingHttpClientConnectionManager oauth2ConnectionManager() {
         PoolingHttpClientConnectionManager connectionManager =
                 new PoolingHttpClientConnectionManager();
