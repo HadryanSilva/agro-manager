@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -85,6 +86,22 @@ public class SecurityConfig {
                         .userInfoEndpoint(userInfo ->
                                 userInfo.userService(customOAuth2UserService))
                         .successHandler(oAuth2AuthenticationSuccessHandler)
+                )
+
+                // Sobrescreve o comportamento padrão do OAuth2 que redireciona (302)
+                // requisições não autenticadas para o Google. Para chamadas de API REST
+                // o correto é retornar 401 para que o frontend faça o refresh do token.
+                // Sem esta configuração o interceptor do Axios nunca recebe o 401 e
+                // a sessão fica presa num redirect loop para /oauth2/authorization/google.
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(401);
+                            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                            response.setCharacterEncoding("UTF-8");
+                            response.getWriter().write(
+                                    "{\"status\":401,\"message\":\"Não autenticado ou token inválido\"}"
+                            );
+                        })
                 )
 
                 // Filtro JWT executado antes do filtro de autenticação padrão
