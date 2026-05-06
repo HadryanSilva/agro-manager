@@ -28,7 +28,8 @@ public class AccountController {
             @Valid @RequestBody CreateAccountRequest request) {
 
         AccountResponse response = accountService.createAccount(principal.getId(), request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Conta criada com sucesso", response));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Conta criada com sucesso", response));
     }
 
     @GetMapping
