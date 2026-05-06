@@ -4,6 +4,7 @@ import br.com.hadryan.agro.manager.infra.security.UserPrincipal;
 import br.com.hadryan.agro.manager.shared.dto.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -27,7 +28,7 @@ public class AccountController {
             @Valid @RequestBody CreateAccountRequest request) {
 
         AccountResponse response = accountService.createAccount(principal.getId(), request);
-        return ResponseEntity.ok(ApiResponse.success("Conta criada com sucesso", response));
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Conta criada com sucesso", response));
     }
 
     @GetMapping
