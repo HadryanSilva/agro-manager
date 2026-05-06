@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -19,6 +20,9 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
+import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -41,6 +45,7 @@ public class SecurityConfig {
     private final CustomOAuth2UserService customOAuth2UserService;
     private final OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
     private final UserDetailsService userDetailsService;
+    private final OAuth2UserService<OAuth2UserRequest, OAuth2User> oAuth2UserService;
 
     @Value("${app.cors.allowed-origins}")
     private String allowedOrigins;
@@ -83,8 +88,24 @@ public class SecurityConfig {
                 // Configuração do fluxo OAuth2 com Google
                 .oauth2Login(oauth2 -> oauth2
                         .userInfoEndpoint(userInfo ->
-                                userInfo.userService(customOAuth2UserService))
+                                userInfo.userService(oAuth2UserService))
                         .successHandler(oAuth2AuthenticationSuccessHandler)
+                )
+
+                // Sobrescreve o comportamento padrão do OAuth2 que redireciona (302)
+                // requisições não autenticadas para o Google. Para chamadas de API REST
+                // o correto é retornar 401 para que o frontend faça o refresh do token.
+                // Sem esta configuração o interceptor do Axios nunca recebe o 401 e
+                // a sessão fica presa num redirect loop para /oauth2/authorization/google.
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(401);
+                            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                            response.setCharacterEncoding("UTF-8");
+                            response.getWriter().write(
+                                    "{\"status\":401,\"message\":\"Token expirado ou inválido\"}"
+                            );
+                        })
                 )
 
                 // Filtro JWT executado antes do filtro de autenticação padrão
