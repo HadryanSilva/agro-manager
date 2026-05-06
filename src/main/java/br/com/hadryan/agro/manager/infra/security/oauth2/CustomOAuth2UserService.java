@@ -4,8 +4,11 @@ import br.com.hadryan.agro.manager.domain.user.AuthProvider;
 import br.com.hadryan.agro.manager.domain.user.User;
 import br.com.hadryan.agro.manager.domain.user.UserRepository;
 import br.com.hadryan.agro.manager.infra.security.UserPrincipal;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
@@ -13,6 +16,7 @@ import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.Map;
 
@@ -26,6 +30,17 @@ import java.util.Map;
 public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
     private final UserRepository userRepository;
+    private final CloseableHttpClient oauth2HttpClient;
+
+    /**
+     * Substitui o RestTemplate padrão (SimpleClientHttpRequestFactory) pelo
+     * Apache HttpClient com pool de conexões, evitando OutOfMemoryError causado
+     * pela criação de uma nova thread SSL por requisição.
+     */
+    @PostConstruct
+    public void init() {
+        setRestOperations(new RestTemplate(new HttpComponentsClientHttpRequestFactory(oauth2HttpClient)));
+    }
 
     @Override
     @Transactional

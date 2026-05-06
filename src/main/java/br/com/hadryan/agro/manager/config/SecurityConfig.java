@@ -20,9 +20,6 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
-import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
-import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -45,7 +42,6 @@ public class SecurityConfig {
     private final CustomOAuth2UserService customOAuth2UserService;
     private final OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
     private final UserDetailsService userDetailsService;
-    private final OAuth2UserService<OAuth2UserRequest, OAuth2User> oAuth2UserService;
 
     @Value("${app.cors.allowed-origins}")
     private String allowedOrigins;
@@ -88,7 +84,7 @@ public class SecurityConfig {
                 // Configuração do fluxo OAuth2 com Google
                 .oauth2Login(oauth2 -> oauth2
                         .userInfoEndpoint(userInfo ->
-                                userInfo.userService(oAuth2UserService))
+                                userInfo.userService(customOAuth2UserService))
                         .successHandler(oAuth2AuthenticationSuccessHandler)
                 )
 
@@ -103,7 +99,7 @@ public class SecurityConfig {
                             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                             response.setCharacterEncoding("UTF-8");
                             response.getWriter().write(
-                                    "{\"status\":401,\"message\":\"Token expirado ou inválido\"}"
+                                    "{\"status\":401,\"message\":\"Não autenticado ou token inválido\"}"
                             );
                         })
                 )

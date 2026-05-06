@@ -7,18 +7,11 @@ import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
 import org.apache.hc.core5.util.TimeValue;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
-import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
-import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
-import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
-import org.springframework.security.oauth2.core.user.OAuth2User;
-import org.springframework.web.client.RestTemplate;
 
 import java.util.concurrent.TimeUnit;
 
 /**
- * Substitui o RestTemplate padrão do DefaultOAuth2UserService por uma
- * implementação com Apache HttpClient e pool de conexões.
+ * Configura o RestTemplate do CustomOAuth2UserService com Apache HttpClient e pool de conexões.
  *
  * Motivo: o SimpleClientHttpRequestFactory padrão cria um novo socket SSL
  * por requisição e tenta criar uma thread de notificação por handshake
@@ -31,35 +24,28 @@ import java.util.concurrent.TimeUnit;
 @Configuration
 public class OAuth2HttpClientConfig {
 
-    @Bean
-    public OAuth2UserService<OAuth2UserRequest, OAuth2User> oAuth2UserService() {
-        DefaultOAuth2UserService delegate = new DefaultOAuth2UserService();
-
-        // Pool de conexões — reutiliza sockets SSL em vez de criar novos por requisição
+    @Bean(destroyMethod = "shutdown")
+    public PoolingHttpClientConnectionManager oauth2ConnectionManager() {
         PoolingHttpClientConnectionManager connectionManager =
                 new PoolingHttpClientConnectionManager();
         connectionManager.setMaxTotal(20);
         connectionManager.setDefaultMaxPerRoute(10);
+        return connectionManager;
+    }
 
+    @Bean(destroyMethod = "close")
+    public CloseableHttpClient oauth2HttpClient(PoolingHttpClientConnectionManager oauth2ConnectionManager) {
         RequestConfig requestConfig = RequestConfig.custom()
                 .setConnectionRequestTimeout(10, TimeUnit.SECONDS)
                 .setResponseTimeout(15, TimeUnit.SECONDS)
                 .build();
 
-        CloseableHttpClient httpClient = HttpClients.custom()
-                .setConnectionManager(connectionManager)
+        return HttpClients.custom()
+                .setConnectionManager(oauth2ConnectionManager)
                 .setDefaultRequestConfig(requestConfig)
                 // Remove conexões obsoletas automaticamente
                 .evictExpiredConnections()
                 .evictIdleConnections(TimeValue.of(30, TimeUnit.SECONDS))
                 .build();
-
-        HttpComponentsClientHttpRequestFactory factory =
-                new HttpComponentsClientHttpRequestFactory(httpClient);
-
-        RestTemplate restTemplate = new RestTemplate(factory);
-        delegate.setRestOperations(restTemplate);
-
-        return delegate;
     }
 }
