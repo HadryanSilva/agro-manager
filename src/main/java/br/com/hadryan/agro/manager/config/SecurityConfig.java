@@ -88,19 +88,30 @@ public class SecurityConfig {
                         .successHandler(oAuth2AuthenticationSuccessHandler)
                 )
 
-                // Sobrescreve o comportamento padrão do OAuth2 que redireciona (302)
-                // requisições não autenticadas para o Google. Para chamadas de API REST
-                // o correto é retornar 401 para que o frontend faça o refresh do token.
-                // Sem esta configuração o interceptor do Axios nunca recebe o 401 e
-                // a sessão fica presa num redirect loop para /oauth2/authorization/google.
+                // Sobrescreve o comportamento padrão do OAuth2 apenas para requisições de API.
+                // Distingue pelo header Authorization (Bearer token) ou Accept: application/json.
+                // Requisições do browser (callback OAuth2 do Google) não têm esses headers
+                // e continuam com o comportamento padrão — redireciona para login.
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((request, response, authException) -> {
-                            response.setStatus(401);
-                            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-                            response.setCharacterEncoding("UTF-8");
-                            response.getWriter().write(
-                                    "{\"status\":401,\"message\":\"Não autenticado ou token inválido\"}"
-                            );
+                            String authHeader   = request.getHeader("Authorization");
+                            String acceptHeader = request.getHeader("Accept");
+
+                            boolean isApiRequest = (authHeader != null && authHeader.startsWith("Bearer "))
+                                    || (acceptHeader != null && acceptHeader.contains("application/json"));
+
+                            if (isApiRequest) {
+                                // Requisição de API com token expirado — retorna 401 para o Axios fazer refresh
+                                response.setStatus(401);
+                                response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                                response.setCharacterEncoding("UTF-8");
+                                response.getWriter().write(
+                                        "{\"status\":401,\"message\":\"Token expirado ou inválido\"}"
+                                );
+                            } else {
+                                // Fluxo de browser (callback OAuth2) — redireciona para o login
+                                response.sendRedirect("/oauth2/authorization/google");
+                            }
                         })
                 )
 
