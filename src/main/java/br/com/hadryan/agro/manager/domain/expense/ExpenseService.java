@@ -42,6 +42,7 @@ public class ExpenseService {
         Farm farm = findFarmAndValidate(accountId, farmId, userId);
 
         Expense expense = Expense.builder()
+                .account(farm.getAccount())
                 .farm(farm)
                 .description(request.description())
                 .category(request.category())
