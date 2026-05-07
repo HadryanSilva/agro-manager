@@ -9,7 +9,6 @@ import br.com.hadryan.agro.manager.shared.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -18,9 +17,14 @@ import java.util.UUID;
 /**
  * Serviço de histórico de atividades de uma lavoura.
  *
- * Métodos de registro automático (record*) usam REQUIRES_NEW para garantir
- * que a atividade seja persistida mesmo que a transação chamadora faça rollback
- * — isso evita perda de histórico por erros pontuais.
+ * O método record() usa propagação REQUIRED (padrão) para garantir que a atividade
+ * faça parte da mesma transação da operação principal. Isso assegura que:
+ * - Se a operação principal for bem-sucedida → a atividade também é commitada
+ * - Se a operação principal falhar → a atividade também é revertida
+ *
+ * IMPORTANTE: usar REQUIRES_NEW aqui causaria o bug de atividades órfãs —
+ * a atividade seria commitada mesmo quando a operação principal falha (ex.: constraint
+ * de banco), registrando no histórico operações que nunca ocorreram de fato.
  */
 @Service
 @RequiredArgsConstructor
@@ -78,7 +82,12 @@ public class FarmActivityService {
 
     // ── Registro automático (chamado pelos outros serviços) ───────────────────
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    /**
+     * Registra uma atividade participando da transação ativa do chamador (REQUIRED).
+     * A atividade só é persistida se a operação principal for bem-sucedida,
+     * evitando registros fantasmas de operações que falharam.
+     */
+    @Transactional
     public void record(UUID farmId, UUID userId, FarmActivityType type, String description, UUID relatedId) {
         Farm farm = farmRepository.findById(farmId).orElse(null);
         User user = userRepository.findById(userId).orElse(null);
