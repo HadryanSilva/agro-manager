@@ -218,4 +218,23 @@ class ExpenseIntegrationTest extends MockMvcIntegrationTestBase {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false));
     }
+
+    @Test
+    @DisplayName("Não deve registrar atividade no histórico quando a criação da despesa falha")
+    void shouldNotRecordActivityWhenExpenseCreationFails() throws Exception {
+        var ctx = setup();
+
+        // Tentativa de criar despesa com dados inválidos (sem campos obrigatórios)
+        mockMvc.perform(post("/accounts/" + ctx.accountId() + "/farms/" + ctx.farmId() + "/expenses")
+                        .header("Authorization", "Bearer " + ctx.token())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("category", "INSUMO"))))
+                .andExpect(status().isBadRequest());
+
+        // O histórico da lavoura deve continuar vazio
+        mockMvc.perform(get("/accounts/" + ctx.accountId() + "/farms/" + ctx.farmId() + "/activities")
+                        .header("Authorization", "Bearer " + ctx.token()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(0));
+    }
 }
