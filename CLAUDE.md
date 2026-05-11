@@ -1,79 +1,206 @@
-# CLAUDE.md
+# Claude Code Configuration for agro-manager
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+> AI-powered development workspace configuration
 
-## Commands
+## Available Skills
 
-```bash
-# Build
-./gradlew build
+Skills are loaded from `.claude/skills/` (symlinked from claude-code-java).
 
-# Run (requires PostgreSQL)
-./gradlew bootRun
+To use a skill, load it first, then invoke with natural language:
 
-# Run only the database via Docker, then boot locally
-docker compose up postgres -d
-./gradlew bootRun
+### 1. Git Commit Messages
+**Load**: `view .claude/skills/git-commit/SKILL.md`
 
-# Run all tests (uses Testcontainers — no local DB needed)
-./gradlew test
+**Use cases**:
+- "Commit staged changes"
+- "Create commit for bug fix #123"
+- "Generate conventional commit message"
 
-# Run a single test class
-./gradlew test --tests "br.com.hadryan.agro.manager.AuthIntegrationTest"
-
-# Run a single test method
-./gradlew test --tests "br.com.hadryan.agro.manager.AuthIntegrationTest.shouldLoginSuccessfully"
-
-# Full stack via Docker Compose
-docker compose up -d
+**Example**:
+```
+> view .claude/skills/git-commit/SKILL.md
+> "Commit these changes"
+→ fix(plugin-loader): prevent NPE when directory missing
 ```
 
-API runs at `http://localhost:8080`. Swagger UI at `/swagger-ui.html`.
+### 2. Test Quality (JUnit 5 + AssertJ)
+**Load**: `view .claude/skills/test-quality/SKILL.md`
 
-## Environment Variables
+**Use cases**:
+- "Add tests for PluginManager.loadAll()"
+- "Review existing tests in PluginLoaderTest"
+- "Improve test coverage for lifecycle module"
 
-| Variable | Description |
-|---|---|
-| `DB_HOST` | PostgreSQL host (default: `postgres`) |
-| `DB_NAME` | Database name (default: `agro_manager`) |
-| `DB_USERNAME` | Database user |
-| `DB_PASSWORD` | Database password |
-| `JWT_SECRET` | JWT signing key (min 64 chars) |
-| `GOOGLE_CLIENT_ID` | Google OAuth2 client ID |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth2 client secret |
-| `FRONTEND_URL` | Frontend URL for CORS (e.g. `http://localhost:5173`) |
+**Example**:
+```
+> view .claude/skills/test-quality/SKILL.md
+> "Add unit tests for ExtensionFactory with edge cases"
+→ Generates JUnit 5 tests with AssertJ assertions
+```
 
-## Architecture
+### 3. Issue Triage
+**Load**: `view .claude/skills/issue-triage/SKILL.md`
 
-**Package-by-feature** under `domain/`. Each domain package contains its entity, repository, request/response DTOs, service interface, service implementation, and controller(s) co-located together.
+**Use cases**:
+- "Triage the last 10 issues"
+- "Check recent bug reports"
+- "Prioritize open feature requests"
 
-### Service Pattern
+**Example**:
+```
+> view .claude/skills/issue-triage/SKILL.md
+> "Triage issues from agro-manager, last 15"
+→ Categorizes, labels, suggests responses
+```
 
-All services follow interface + implementation: `FooService` (interface) + `FooServiceImpl` (annotated `@Service`). Always inject the interface, never the implementation.
+## MCP Servers (Optional)
 
-### Multi-tenancy
+MCP servers enhance capabilities with structured, token-efficient operations:
 
-Resources are scoped to `Account`. `AccountMember` maps `User` → `Account` with a role (`OWNER`/`ADMIN`/`MEMBER`). Most endpoints are nested under `/accounts/{accountId}/...`. Authorization checks happen inside service methods by verifying the caller's `AccountMember` record.
+| Server | Benefits |
+|--------|----------|
+| GitHub MCP | Issue management, PR creation |
+| Filesystem MCP | Structured file tree navigation |
+| Git MCP | Commit history, blame, log parsing |
 
-### Security
+To configure MCP servers, run from claude-code-java:
+```bash
+./scripts/configure-mcp.sh /path/to/this/project
+```
 
-- Stateless JWT via `JwtAuthenticationFilter` (reads `Authorization: Bearer <token>`)
-- `JwtService` generates/validates tokens using HMAC-SHA256; signing key is computed once at startup via `@PostConstruct`
-- OAuth2 Google handled by `CustomOAuth2UserService` + `OAuth2AuthenticationSuccessHandler`
-- Public routes: `/auth/**`, `/oauth2/**`, `/login/oauth2/**`, `/invites/**` (GET), Swagger, Actuator health/prometheus
-- Custom auth entry point returns 401 JSON for API clients (`Bearer`/`application/json`) and redirects browsers to Google OAuth
+See [MCP documentation](https://modelcontextprotocol.io/) for details.
 
-### Shared Layer
+## Common Workflows
 
-- `ApiResponse<T>` — uniform response envelope (`data`, `message`, `success`)
-- `PageResponse<T>` — pagination wrapper
-- `BusinessException(message, HttpStatus)` — domain rule violations
-- `ResourceNotFoundException` — 404-style errors
-- `GlobalExceptionHandler` — maps all exceptions to `ApiResponse`; only unexpected errors are logged with stack trace
+### Daily Development Flow
+```bash
+# 1. Start session
+claude code .
 
-### Testing
+# 2. Work on feature/fix
+# ... make code changes ...
 
-- `IntegrationTestBase` — `@SpringBootTest` + Testcontainers PostgreSQL 17; shared static container across all subclasses; `JavaMailSender` and `SpringTemplateEngine` are `@MockitoBean` (no SMTP needed)
-- `MockMvcIntegrationTestBase extends IntegrationTestBase` — adds `MockMvc` + helpers (`registerAndGetToken`, `createAccount`, `createFarm`, `createExpense`)
-- Integration tests live in the root test package; unit tests live in `domain/<feature>/`
-- Use `uniqueEmail()` helper when tests register users to avoid email collision between parallel runs
+# 3. Add tests (load test-quality skill)
+> view .claude/skills/test-quality/SKILL.md
+> "Add tests for new functionality in class X"
+
+# 4. Commit (load git-commit skill)
+> view .claude/skills/git-commit/SKILL.md
+> "Commit staged changes"
+
+# 5. Push and create PR
+> "Push changes and create PR for issue #123"
+```
+
+### Weekly Maintenance
+```bash
+# Monday morning: Issue triage
+claude code .
+
+> view .claude/skills/issue-triage/SKILL.md
+> "Triage the last 20 issues, categorize and prioritize"
+
+# Review suggested actions
+> "Apply labels and post responses as suggested"
+```
+
+### Code Review
+```bash
+# Review PR
+> "Review PR #456 focusing on:
+   - Test coverage (use test-quality skill)
+   - Commit message quality (use git-commit skill)
+   - Code patterns and best practices"
+```
+
+## Token Budget Guidelines
+
+To optimize token usage:
+
+1. **Load skills once per session** - Skills stay in context
+2. **Batch operations** - Process multiple issues/tests together
+3. **Use MCP when available** - More efficient than bash commands
+4. **Targeted file reads** - Only read files you need
+
+### Target Token Usage
+
+| Task | Without Skills | With Skills | Savings |
+|------|----------------|-------------|---------|
+| Commit message | ~800 tokens | ~300 tokens | 62% |
+| Add 3 tests | ~2000 tokens | ~800 tokens | 60% |
+| Triage 10 issues | ~5000 tokens | ~2000 tokens | 60% |
+
+## What to Avoid
+
+1. **Don't reload skills repeatedly** - Load once per session
+2. **Don't process issues one-by-one** - Batch them
+3. **Don't over-engineer** - Use skills for appropriate tasks
+4. **Don't ignore skill guidelines** - They're optimized for tokens
+
+## Project-Specific Notes
+
+### Build Commands
+```bash
+# Maven
+mvn clean install
+mvn test
+mvn jacoco:report
+
+# Check test coverage
+open target/site/jacoco/index.html
+```
+
+### Testing Strategy
+- Target: 80%+ coverage on core logic
+- Focus: Business logic, not boilerplate
+- Tools: JUnit 5, AssertJ, Mockito
+
+### Commit Guidelines
+- Follow Conventional Commits
+- Reference issues: "Fixes #123"
+- Keep subject under 50 chars
+
+### Issue Management
+- Label all new issues within 48h
+- Respond to questions within 1 week
+- Close stale (>90 days, no activity) issues
+
+## Resources
+
+- [claude-code-java](https://github.com/decebals/claude-code-java) - Skill repository
+- [Claude Code Docs](https://code.claude.com/docs) - Official documentation
+- [Conventional Commits](https://www.conventionalcommits.org/) - Commit format
+- [AssertJ Docs](https://assertj.github.io/doc/) - Assertion library
+
+## Tips & Tricks
+
+### Quick skill loading
+```bash
+# Add to your shell alias
+alias cc-commit='echo "view .claude/skills/git-commit/SKILL.md"'
+alias cc-test='echo "view .claude/skills/test-quality/SKILL.md"'
+alias cc-triage='echo "view .claude/skills/issue-triage/SKILL.md"'
+```
+
+### Session continuity
+```bash
+# Save context at end of session
+> "Summarize what we worked on today for next session"
+
+# Resume next day
+> "Review yesterday's summary and continue"
+```
+
+### Measure your wins
+```bash
+# Track token usage
+> /token usage
+
+# Compare before/after adopting skills
+# Document savings in team retrospectives
+```
+
+---
+
+**Last updated**: 2026-05-11
+**claude-code-java version**: v0.1
