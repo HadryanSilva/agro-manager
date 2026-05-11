@@ -45,18 +45,18 @@ class AccountIntegrationTest extends MockMvcIntegrationTestBase {
     }
 
     @Test
-    @DisplayName("Deve excluir conta com sucesso quando o nome de confirmação está correto")
+    @DisplayName("Deve excluir conta com sucesso — retorna 204 No Content")
     void shouldDeleteAccountSuccessfully() throws Exception {
         String token = registerAndGetToken(uniqueEmail(), "senha12345");
         String accountId = createAccount(token, "Fazenda Temporária");
 
+        // DELETE bem-sucedido retorna 204 sem body (semântica REST correta)
         mockMvc.perform(delete("/accounts/" + accountId)
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
                                 Map.of("confirmationName", "Fazenda Temporária"))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+                .andExpect(status().isNoContent());
 
         // Verifica que a conta foi removida da lista do usuário
         mockMvc.perform(get("/accounts")
@@ -83,9 +83,6 @@ class AccountIntegrationTest extends MockMvcIntegrationTestBase {
     @Test
     @DisplayName("Deve rejeitar requisição sem token de autenticação")
     void shouldRejectUnauthenticatedRequest() throws Exception {
-        // Accept: application/json sinaliza ao authenticationEntryPoint que é uma
-        // requisição de API — sem esse header o Spring Security redireciona (302) para
-        // o OAuth2 em vez de retornar 401, pois trata como requisição de browser
         mockMvc.perform(get("/accounts")
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isUnauthorized());

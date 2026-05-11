@@ -1,0 +1,107 @@
+package br.com.hadryan.agro.manager.domain.farm;
+
+import br.com.hadryan.agro.manager.domain.account.AccountInviteService;
+import br.com.hadryan.agro.manager.domain.account.AccountMemberRepository;
+import br.com.hadryan.agro.manager.domain.account.AccountRepository;
+import br.com.hadryan.agro.manager.domain.user.User;
+import br.com.hadryan.agro.manager.domain.user.UserRepository;
+import br.com.hadryan.agro.manager.shared.exception.BusinessException;
+import br.com.hadryan.agro.manager.shared.exception.ResourceNotFoundException;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.UUID;
+
+/**
+ * Serviço de histórico de atividades de uma lavoura.
+ *
+ * O método record() usa propagação REQUIRED (padrão) para garantir que a atividade
+ * faça parte da mesma transação da operação principal. Isso assegura que:
+ * - Se a operação principal for bem-sucedida → a atividade também é commitada
+ * - Se a operação principal falhar → a atividade também é revertida
+ *
+ * IMPORTANTE: usar REQUIRES_NEW aqui causaria o bug de atividades órfãs —
+ * a atividade seria commitada mesmo quando a operação principal falha (ex.: constraint
+ * de banco), registrando no histórico operações que nunca ocorreram de fato.
+ */
+@Service
+@RequiredArgsConstructor
+public class FarmActivityServiceImpl implements FarmActivityService {
+
+    private final FarmActivityRepository activityRepository;
+    private final FarmRepository farmRepository;
+    private final UserRepository userRepository;
+    private final AccountRepository accountRepository;
+    private final AccountMemberRepository accountMemberRepository;
+
+    // ── Leitura ───────────────────────────────────────────────────────────────
+
+    @Transactional(readOnly = true)
+    public List<FarmActivityResponse> getActivities(UUID accountId, UUID farmId, UUID userId) {
+        accountRepository.findById(accountId)
+                .orElseThrow(() -> new ResourceNotFoundException("Conta", "id", accountId));
+
+        if (!accountMemberRepository.existsByAccountIdAndUserId(accountId, userId)) {
+            throw new BusinessException("Acesso negado a esta conta", HttpStatus.FORBIDDEN);
+        }
+
+        farmRepository.findByIdAndAccountId(farmId, accountId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lavoura", "id", farmId));
+
+        return activityRepository.findByFarmIdOrderByCreatedAtDesc(farmId)
+                .stream()
+                .map(FarmActivityResponse::from)
+                .toList();
+    }
+
+    // ── Anotação manual ───────────────────────────────────────────────────────
+
+    @Transactional
+    public FarmActivityResponse addNote(UUID accountId, UUID farmId, UUID userId, NoteRequest request) {
+        if (!accountMemberRepository.existsByAccountIdAndUserId(accountId, userId)) {
+            throw new BusinessException("Acesso negado a esta conta", HttpStatus.FORBIDDEN);
+        }
+
+        Farm farm = farmRepository.findByIdAndAccountId(farmId, accountId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lavoura", "id", farmId));
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuário", "id", userId));
+
+        FarmActivity activity = FarmActivity.builder()
+                .farm(farm)
+                .user(user)
+                .type(FarmActivityType.NOTE)
+                .description(request.description())
+                .build();
+
+        return FarmActivityResponse.from(activityRepository.save(activity));
+    }
+
+    // ── Registro automático (chamado pelos outros serviços) ───────────────────
+
+    /**
+     * Registra uma atividade participando da transação ativa do chamador (REQUIRED).
+     * A atividade só é persistida se a operação principal for bem-sucedida,
+     * evitando registros fantasmas de operações que falharam.
+     */
+    @Transactional
+    public void record(UUID farmId, UUID userId, FarmActivityType type, String description, UUID relatedId) {
+        Farm farm = farmRepository.findById(farmId).orElse(null);
+        User user = userRepository.findById(userId).orElse(null);
+        if (farm == null || user == null) return;
+
+        FarmActivity activity = FarmActivity.builder()
+                .farm(farm)
+                .user(user)
+                .type(type)
+                .description(description)
+                .relatedId(relatedId)
+                .build();
+
+        activityRepository.save(activity);
+    }
+}

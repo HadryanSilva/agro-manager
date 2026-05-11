@@ -20,6 +20,9 @@ import java.io.IOException;
  * Filtro executado uma vez por requisição.
  * Extrai e valida o token JWT do header Authorization,
  * populando o SecurityContext quando o token for válido.
+ *
+ * Utiliza extractUserIdIfValid() para validar e extrair o userId
+ * em uma única operação de parse criptográfico.
  */
 @Slf4j
 @Component
@@ -36,15 +39,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String token = extractTokenFromRequest(request);
 
-        if (token != null && jwtService.isTokenValid(token)) {
-            String userId = jwtService.extractUserId(token);
-            UserDetails userDetails = userDetailsService.loadUserById(userId);
+        if (token != null) {
+            // Valida e extrai userId em um único parse — evita operação criptográfica dupla
+            jwtService.extractUserIdIfValid(token).ifPresent(userId -> {
+                UserDetails userDetails = userDetailsService.loadUserById(userId);
 
-            UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-            authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                UsernamePasswordAuthenticationToken authentication =
+                        new UsernamePasswordAuthenticationToken(
+                                userDetails, null, userDetails.getAuthorities());
+                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+            });
         }
 
         filterChain.doFilter(request, response);

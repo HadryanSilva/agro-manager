@@ -22,7 +22,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class TransactionController {
 
-    private final TransactionService transactionService;
+    private final TransactionServiceImpl transactionService;
 
     /**
      * Lista transações paginadas com filtros opcionais.

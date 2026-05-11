@@ -4,6 +4,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -31,4 +32,18 @@ public interface AccountMemberRepository extends JpaRepository<AccountMember, UU
             ORDER BY am.role ASC, am.joinedAt ASC
             """)
     List<AccountMember> findByAccountIdWithUser(UUID accountId);
+
+    /**
+     * Retorna a contagem de membros por conta em uma única query (GROUP BY).
+     * Evita o problema N+1 que ocorre ao chamar countByAccountId() por iteração.
+     *
+     * Retorna pares [accountId, count] como Object[] para mapeamento manual.
+     */
+    @Query("""
+            SELECT am.account.id, COUNT(am)
+            FROM AccountMember am
+            WHERE am.account.id IN :accountIds
+            GROUP BY am.account.id
+            """)
+    List<Object[]> countMembersByAccountIds(Collection<UUID> accountIds);
 }

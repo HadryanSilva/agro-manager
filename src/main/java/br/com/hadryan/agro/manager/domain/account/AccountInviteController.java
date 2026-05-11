@@ -4,11 +4,12 @@ import br.com.hadryan.agro.manager.infra.security.UserPrincipal;
 import br.com.hadryan.agro.manager.shared.dto.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.net.URI;
 import java.util.List;
 import java.util.UUID;
 
@@ -32,12 +33,18 @@ public class AccountInviteController {
             @AuthenticationPrincipal UserPrincipal principal,
             @Valid @RequestBody AccountInviteRequest request) {
 
-        // @Valid garante que email e role estão presentes e válidos antes de chegar aqui
         AccountInviteResponse response = inviteService.createInvite(
                 accountId, principal.getId(), request);
 
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Convite enviado com sucesso para " + request.email(), response));
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentContextPath()
+                .path("/accounts/{accountId}/invites/{id}")
+                .buildAndExpand(accountId, response.id())
+                .toUri();
+
+        return ResponseEntity.created(location)
+                .body(ApiResponse.success(
+                        "Convite enviado com sucesso para " + request.email(), response));
     }
 
     @GetMapping("/accounts/{accountId}/invites")
@@ -49,14 +56,15 @@ public class AccountInviteController {
         return ResponseEntity.ok(ApiResponse.success(invites));
     }
 
+    /** Retorna 204 No Content — sem body, conforme semântica REST para DELETE. */
     @DeleteMapping("/accounts/{accountId}/invites/{inviteId}")
-    public ResponseEntity<ApiResponse<Void>> revokeInvite(
+    public ResponseEntity<Void> revokeInvite(
             @PathVariable UUID accountId,
             @PathVariable UUID inviteId,
             @AuthenticationPrincipal UserPrincipal principal) {
 
         inviteService.revokeInvite(accountId, principal.getId(), inviteId);
-        return ResponseEntity.ok(ApiResponse.success("Convite revogado com sucesso", null));
+        return ResponseEntity.noContent().build();
     }
 
     // ── Fluxo público de convite ──────────────────────────────────────────────

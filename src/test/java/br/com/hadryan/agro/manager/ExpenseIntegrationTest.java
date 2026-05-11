@@ -160,17 +160,17 @@ class ExpenseIntegrationTest extends MockMvcIntegrationTestBase {
     }
 
     @Test
-    @DisplayName("Deve excluir despesa e remover da listagem")
+    @DisplayName("Deve excluir despesa e remover da listagem — retorna 204 No Content")
     void shouldDeleteExpenseAndRemoveFromList() throws Exception {
         var ctx = setup();
         String expenseId = createExpense(ctx.token(), ctx.accountId(), ctx.farmId(),
                 "Despesa Para Deletar", "INSUMO", 200.0, "2025-01-20");
 
+        // DELETE retorna 204 sem body (padrão REST correto)
         mockMvc.perform(delete("/accounts/" + ctx.accountId() + "/farms/" + ctx.farmId()
                         + "/expenses/" + expenseId)
                         .header("Authorization", "Bearer " + ctx.token()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+                .andExpect(status().isNoContent());
 
         // Verifica que a listagem ficou vazia após a exclusão
         mockMvc.perform(get("/accounts/" + ctx.accountId() + "/farms/" + ctx.farmId() + "/expenses")

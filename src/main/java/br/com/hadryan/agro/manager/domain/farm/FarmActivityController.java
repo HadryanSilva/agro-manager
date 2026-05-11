@@ -20,7 +20,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class FarmActivityController {
 
-    private final FarmActivityService activityService;
+    private final FarmActivityServiceImpl activityService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<FarmActivityResponse>>> getActivities(

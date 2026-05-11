@@ -101,15 +101,15 @@ class FarmIntegrationTest extends MockMvcIntegrationTestBase {
     }
 
     @Test
-    @DisplayName("Deve excluir lavoura e removê-la da listagem")
+    @DisplayName("Deve excluir lavoura e removê-la da listagem — retorna 204 No Content")
     void shouldDeleteFarmAndRemoveFromList() throws Exception {
         var ctx = setup();
         String farmId = createFarm(ctx.token(), ctx.accountId(), "Lavoura Para Deletar");
 
+        // DELETE retorna 204 sem body (padrão REST correto)
         mockMvc.perform(delete("/accounts/" + ctx.accountId() + "/farms/" + farmId)
                         .header("Authorization", "Bearer " + ctx.token()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+                .andExpect(status().isNoContent());
 
         // Verifica que a lista ficou vazia após a exclusão
         mockMvc.perform(get("/accounts/" + ctx.accountId() + "/farms")
