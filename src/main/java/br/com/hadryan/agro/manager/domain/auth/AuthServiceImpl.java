@@ -1,5 +1,6 @@
 package br.com.hadryan.agro.manager.domain.auth;
 
+import br.com.hadryan.agro.manager.config.JwtProperties;
 import br.com.hadryan.agro.manager.domain.user.AuthProvider;
 import br.com.hadryan.agro.manager.domain.user.User;
 import br.com.hadryan.agro.manager.domain.user.UserRepository;
@@ -7,7 +8,6 @@ import br.com.hadryan.agro.manager.infra.security.JwtService;
 import br.com.hadryan.agro.manager.shared.exception.BusinessException;
 import br.com.hadryan.agro.manager.shared.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -18,22 +18,20 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.UUID;
 
 /**
- * Serviço responsável pelos fluxos de autenticação local:
+ * Implementação dos fluxos de autenticação local:
  * registro, login com e-mail/senha e renovação de tokens.
  */
 @Service
 @RequiredArgsConstructor
-public class AuthService {
+public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
+    private final JwtProperties jwtProperties;
 
-    // Validade do access token em ms — usada para calcular o campo expiresIn da resposta
-    @Value("${app.jwt.expiration}")
-    private long jwtExpiration;
-
+    @Override
     @Transactional
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.email())) {
@@ -53,9 +51,9 @@ public class AuthService {
         return buildAuthResponse(user);
     }
 
+    @Override
     @Transactional(readOnly = true)
     public AuthResponse login(LoginRequest request) {
-        // Delega a validação de credenciais ao Spring Security
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.email(), request.password())
         );
@@ -66,11 +64,11 @@ public class AuthService {
         return buildAuthResponse(user);
     }
 
+    @Override
     @Transactional(readOnly = true)
     public AuthResponse refresh(RefreshTokenRequest request) {
         String token = request.refreshToken();
 
-        // extractUserIdIfValid valida e extrai em uma única operação de parse criptográfico
         String userId = jwtService.extractUserIdIfValid(token)
                 .orElseThrow(() -> new BusinessException(
                         "Refresh token inválido ou expirado", HttpStatus.UNAUTHORIZED));
@@ -81,13 +79,12 @@ public class AuthService {
         return buildAuthResponse(user);
     }
 
-    // Monta a resposta com novos tokens gerados para o usuário
     private AuthResponse buildAuthResponse(User user) {
         return new AuthResponse(
                 jwtService.generateAccessToken(user),
                 jwtService.generateRefreshToken(user),
                 "Bearer",
-                jwtExpiration / 1000
+                jwtProperties.expiration() / 1000
         );
     }
 }

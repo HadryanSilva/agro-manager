@@ -42,13 +42,14 @@ public class AccountMemberController {
         return ResponseEntity.ok(ApiResponse.success("Papel atualizado com sucesso", response));
     }
 
+    /** Retorna 204 No Content — sem body, conforme semântica REST para DELETE. */
     @DeleteMapping("/{memberId}")
-    public ResponseEntity<ApiResponse<Void>> removeMember(
+    public ResponseEntity<Void> removeMember(
             @PathVariable UUID accountId,
             @PathVariable UUID memberId,
             @AuthenticationPrincipal UserPrincipal principal) {
 
         memberService.removeMember(accountId, principal.getId(), memberId);
-        return ResponseEntity.ok(ApiResponse.success("Membro removido com sucesso", null));
+        return ResponseEntity.noContent().build();
     }
 }

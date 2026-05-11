@@ -18,12 +18,17 @@ import java.util.Map;
 /**
  * Centraliza o tratamento de exceções da aplicação.
  * Garante que todos os erros retornem no formato padrão ApiResponse.
+ *
+ * Política de logging por severidade:
+ *  - Erros esperados de negócio/validação/auth: NÃO logados (ruído sem valor operacional)
+ *  - Erros inesperados (genéricos): logados com stack trace (alertas operacionais)
  */
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
     // Erros de validação de campos (@Valid / @Validated)
+    // Não logado: violação esperada de contrato de entrada — responsabilidade do cliente
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Map<String, String>>> handleValidationErrors(
             MethodArgumentNotValidException ex) {
@@ -40,6 +45,7 @@ public class GlobalExceptionHandler {
     }
 
     // Violações de regra de negócio
+    // Não logado: exceção esperada e controlada pelo domínio
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException ex) {
         return ResponseEntity.status(ex.getStatus())
@@ -47,6 +53,7 @@ public class GlobalExceptionHandler {
     }
 
     // Recursos não encontrados
+    // Não logado: ausência de dados é uma condição de negócio, não um erro de sistema
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleResourceNotFoundException(
             ResourceNotFoundException ex) {
@@ -55,6 +62,7 @@ public class GlobalExceptionHandler {
     }
 
     // Credenciais inválidas no login
+    // Não logado por segurança: evitar exposição de detalhes de tentativas de acesso em logs
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ApiResponse<Void>> handleBadCredentials(BadCredentialsException ex) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -62,24 +70,26 @@ public class GlobalExceptionHandler {
     }
 
     // Acesso negado a um recurso protegido
+    // Não logado: contexto já disponível no SecurityContext; logar seria ruído de baixo valor
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiResponse<Void>> handleAccessDenied(AccessDeniedException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(ApiResponse.error("Acesso negado"));
     }
 
-    // Erro genérico não mapeado
+    // Recursos estáticos não encontrados (ex: favicon.ico, /static/**)
+    // Suprimido silenciosamente — evita poluição de logs com assets não encontrados
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleNoResourceFound(NoResourceFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.error("Recurso não encontrado"));
+    }
+
+    // Erro genérico não mapeado — logado com stack trace para alertas operacionais
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGenericException(Exception ex) {
         log.error("Erro inesperado: {}", ex.getMessage(), ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.error("Erro interno do servidor"));
-    }
-
-    // Ignora silenciosamente recursos estáticos não encontrados — evita poluição de logs
-    @ExceptionHandler(NoResourceFoundException.class)
-    public ResponseEntity<ApiResponse<Void>> handleNoResourceFound(NoResourceFoundException ex) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(ApiResponse.error("Recurso não encontrado"));
     }
 }

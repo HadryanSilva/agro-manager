@@ -4,20 +4,18 @@ import br.com.hadryan.agro.manager.infra.security.UserPrincipal;
 import br.com.hadryan.agro.manager.shared.dto.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.net.URI;
 import java.util.List;
 import java.util.UUID;
 
 /**
  * Endpoints para gerenciamento de despesas vinculadas a uma lavoura específica.
  * Todas as operações requerem que o usuário seja membro da conta.
- *
- * Separado de GeneralExpenseController para eliminar a repetição de paths
- * e tornar explícito o escopo de cada controller.
  */
 @RestController
 @RequestMapping("/accounts/{accountId}/farms/{farmId}/expenses")
@@ -34,7 +32,13 @@ public class FarmExpenseController {
             @Valid @RequestBody ExpenseRequest request) {
 
         ExpenseResponse response = expenseService.create(accountId, farmId, principal.getId(), request);
-        return ResponseEntity.status(HttpStatus.CREATED)
+
+        URI location = ServletUriComponentsBuilder.fromCurrentRequest()
+                .path("/{id}")
+                .buildAndExpand(response.id())
+                .toUri();
+
+        return ResponseEntity.created(location)
                 .body(ApiResponse.success("Despesa registrada com sucesso", response));
     }
 
@@ -71,15 +75,16 @@ public class FarmExpenseController {
         return ResponseEntity.ok(ApiResponse.success("Despesa atualizada com sucesso", response));
     }
 
+    /** Retorna 204 No Content — sem body, conforme semântica REST para DELETE. */
     @DeleteMapping("/{expenseId}")
-    public ResponseEntity<ApiResponse<Void>> delete(
+    public ResponseEntity<Void> delete(
             @PathVariable UUID accountId,
             @PathVariable UUID farmId,
             @PathVariable UUID expenseId,
             @AuthenticationPrincipal UserPrincipal principal) {
 
         expenseService.delete(accountId, farmId, principal.getId(), expenseId);
-        return ResponseEntity.ok(ApiResponse.success("Despesa removida com sucesso", null));
+        return ResponseEntity.noContent().build();
     }
 
     @PatchMapping("/{expenseId}/pay")

@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class UserProfileController {
 
-    private final UserProfileService userProfileService;
+    private final UserProfileServiceImpl userProfileService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<UserProfileResponse>> getProfile(

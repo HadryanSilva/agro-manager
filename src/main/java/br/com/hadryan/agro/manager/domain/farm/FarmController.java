@@ -4,11 +4,12 @@ import br.com.hadryan.agro.manager.infra.security.UserPrincipal;
 import br.com.hadryan.agro.manager.shared.dto.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.net.URI;
 import java.util.List;
 import java.util.UUID;
 
@@ -30,7 +31,13 @@ public class FarmController {
             @Valid @RequestBody FarmRequest request) {
 
         FarmResponse response = farmService.create(accountId, principal.getId(), request);
-        return ResponseEntity.status(HttpStatus.CREATED)
+
+        URI location = ServletUriComponentsBuilder.fromCurrentRequest()
+                .path("/{id}")
+                .buildAndExpand(response.id())
+                .toUri();
+
+        return ResponseEntity.created(location)
                 .body(ApiResponse.success("Lavoura criada com sucesso", response));
     }
 
@@ -65,13 +72,14 @@ public class FarmController {
         return ResponseEntity.ok(ApiResponse.success("Lavoura atualizada com sucesso", response));
     }
 
+    /** Retorna 204 No Content — sem body, conforme semântica REST para DELETE. */
     @DeleteMapping("/{farmId}")
-    public ResponseEntity<ApiResponse<Void>> delete(
+    public ResponseEntity<Void> delete(
             @PathVariable UUID accountId,
             @PathVariable UUID farmId,
             @AuthenticationPrincipal UserPrincipal principal) {
 
         farmService.delete(accountId, principal.getId(), farmId);
-        return ResponseEntity.ok(ApiResponse.success("Lavoura removida com sucesso", null));
+        return ResponseEntity.noContent().build();
     }
 }

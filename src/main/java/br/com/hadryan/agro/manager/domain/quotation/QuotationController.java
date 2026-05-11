@@ -4,11 +4,12 @@ import br.com.hadryan.agro.manager.infra.security.UserPrincipal;
 import br.com.hadryan.agro.manager.shared.dto.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.net.URI;
 import java.util.List;
 import java.util.UUID;
 
@@ -29,13 +30,17 @@ public class QuotationController {
             @Valid @RequestBody QuotationRequest request) {
 
         QuotationResponse response = quotationService.create(accountId, principal.getId(), request);
-        return ResponseEntity.status(HttpStatus.CREATED)
+
+        URI location = ServletUriComponentsBuilder.fromCurrentRequest()
+                .path("/{id}")
+                .buildAndExpand(response.id())
+                .toUri();
+
+        return ResponseEntity.created(location)
                 .body(ApiResponse.success("Cotação registrada com sucesso", response));
     }
 
-    /**
-     * Lista cotações agrupadas por produto com métricas de economia.
-     */
+    /** Lista cotações agrupadas por produto com métricas de economia. */
     @GetMapping
     public ResponseEntity<ApiResponse<List<QuotationGroupResponse>>> listGrouped(
             @PathVariable UUID accountId,
@@ -45,9 +50,7 @@ public class QuotationController {
         return ResponseEntity.ok(ApiResponse.success(groups));
     }
 
-    /**
-     * Retorna nomes de produtos já cadastrados para autocomplete.
-     */
+    /** Retorna nomes de produtos já cadastrados para autocomplete. */
     @GetMapping("/products")
     public ResponseEntity<ApiResponse<List<String>>> getProductSuggestions(
             @PathVariable UUID accountId,
@@ -68,13 +71,14 @@ public class QuotationController {
         return ResponseEntity.ok(ApiResponse.success("Cotação atualizada com sucesso", response));
     }
 
+    /** Retorna 204 No Content — sem body, conforme semântica REST para DELETE. */
     @DeleteMapping("/{quotationId}")
-    public ResponseEntity<ApiResponse<Void>> delete(
+    public ResponseEntity<Void> delete(
             @PathVariable UUID accountId,
             @PathVariable UUID quotationId,
             @AuthenticationPrincipal UserPrincipal principal) {
 
         quotationService.delete(accountId, principal.getId(), quotationId);
-        return ResponseEntity.ok(ApiResponse.success("Cotação removida com sucesso", null));
+        return ResponseEntity.noContent().build();
     }
 }

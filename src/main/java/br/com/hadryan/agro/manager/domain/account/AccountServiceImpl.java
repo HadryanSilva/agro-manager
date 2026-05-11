@@ -15,16 +15,17 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * Serviço responsável pelo gerenciamento de contas.
+ * Implementação do serviço de gerenciamento de contas.
  */
 @Service
 @RequiredArgsConstructor
-public class AccountService {
+public class AccountServiceImpl implements AccountService {
 
     private final AccountRepository accountRepository;
     private final AccountMemberRepository accountMemberRepository;
     private final UserRepository userRepository;
 
+    @Override
     @Transactional
     public AccountResponse createAccount(UUID userId, CreateAccountRequest request) {
         User owner = userRepository.findById(userId)
@@ -48,6 +49,7 @@ public class AccountService {
         return AccountResponse.from(account, AccountRole.OWNER, 1);
     }
 
+    @Override
     @Transactional(readOnly = true)
     public List<AccountResponse> getUserAccounts(UUID userId) {
         List<AccountMember> memberships = accountMemberRepository.findByUserId(userId);
@@ -79,41 +81,26 @@ public class AccountService {
                 .toList();
     }
 
-    /**
-     * Exclui permanentemente uma conta e todos os seus dados.
-     * <br>
-     * Camadas de segurança:
-     *   1. Somente o OWNER pode excluir a conta
-     *   2. O nome digitado deve bater exatamente com o nome da conta
-     * <br>
-     * A exclusão em cascata (membros, lavouras, despesas, convites)
-     * é garantida pelos ON DELETE CASCADE definidos nas migrations.
-     */
+    @Override
     @Transactional
     public void deleteAccount(UUID accountId, UUID userId, DeleteAccountRequest request) {
-        // Verifica que o usuário é OWNER da conta
         AccountMember caller = accountMemberRepository
                 .findByAccountIdAndUserId(accountId, userId)
                 .orElseThrow(() -> new BusinessException("Acesso negado", HttpStatus.FORBIDDEN));
 
         if (caller.getRole() != AccountRole.OWNER) {
-            throw new BusinessException(
-                    "Apenas o OWNER pode excluir a conta", HttpStatus.FORBIDDEN);
+            throw new BusinessException("Apenas o OWNER pode excluir a conta", HttpStatus.FORBIDDEN);
         }
 
         Account account = accountRepository.findById(accountId)
                 .orElseThrow(() -> new ResourceNotFoundException("Conta", "id", accountId));
 
-        // Valida que o nome digitado é idêntico ao nome da conta — case-sensitive
-        // Mesma validação feita no frontend, repetida aqui como camada extra
         if (!account.getName().equals(request.confirmationName())) {
             throw new BusinessException(
                     "O nome digitado não confere com o nome da conta. Operação cancelada.",
                     HttpStatus.UNPROCESSABLE_CONTENT);
         }
 
-        // A exclusão em cascata cuida de: account_members, account_invites,
-        // farms → farm_activities, expenses, quotations, etc.
         accountRepository.delete(account);
     }
 }

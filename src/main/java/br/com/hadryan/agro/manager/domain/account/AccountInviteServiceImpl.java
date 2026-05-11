@@ -24,7 +24,7 @@ import java.util.UUID;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class AccountInviteService {
+public class AccountInviteServiceImpl implements  AccountInviteService {
 
     private static final int INVITE_EXPIRY_DAYS = 7;
 

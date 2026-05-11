@@ -11,21 +11,23 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.UUID;
 
 /**
- * Serviço responsável pela visualização e atualização do perfil do usuário autenticado.
+ * Implementação do serviço de perfil do usuário autenticado.
  * Alteração de senha é permitida apenas para contas com authProvider LOCAL.
  */
 @Service
 @RequiredArgsConstructor
-public class UserProfileService {
+public class UserProfileServiceImpl implements UserProfileService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
+    @Override
     @Transactional(readOnly = true)
     public UserProfileResponse getProfile(UUID userId) {
         return UserProfileResponse.from(findUser(userId));
     }
 
+    @Override
     @Transactional
     public UserProfileResponse updateProfile(UUID userId, UpdateProfileRequest request) {
         User user = findUser(userId);
@@ -33,10 +35,7 @@ public class UserProfileService {
         return UserProfileResponse.from(userRepository.save(user));
     }
 
-    /**
-     * Altera a senha do usuário.
-     * Bloqueado para contas OAuth2 — essas contas não possuem senha local.
-     */
+    @Override
     @Transactional
     public void changePassword(UUID userId, ChangePasswordRequest request) {
         User user = findUser(userId);
@@ -49,12 +48,10 @@ public class UserProfileService {
             );
         }
 
-        // Valida a senha atual antes de permitir a troca
         if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
             throw new BusinessException("Senha atual incorreta", HttpStatus.BAD_REQUEST);
         }
 
-        // Impede reutilização da mesma senha
         if (passwordEncoder.matches(request.newPassword(), user.getPasswordHash())) {
             throw new BusinessException("A nova senha não pode ser igual à senha atual", HttpStatus.BAD_REQUEST);
         }

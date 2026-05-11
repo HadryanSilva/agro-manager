@@ -1,5 +1,6 @@
 package br.com.hadryan.agro.manager.domain.farm;
 
+import br.com.hadryan.agro.manager.domain.account.AccountInviteService;
 import br.com.hadryan.agro.manager.domain.account.AccountMemberRepository;
 import br.com.hadryan.agro.manager.domain.account.AccountRepository;
 import br.com.hadryan.agro.manager.domain.user.User;
@@ -28,7 +29,7 @@ import java.util.UUID;
  */
 @Service
 @RequiredArgsConstructor
-public class FarmActivityService {
+public class FarmActivityServiceImpl implements FarmActivityService {
 
     private final FarmActivityRepository activityRepository;
     private final FarmRepository farmRepository;

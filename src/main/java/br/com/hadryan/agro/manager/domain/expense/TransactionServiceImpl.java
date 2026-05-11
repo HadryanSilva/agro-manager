@@ -24,7 +24,7 @@ import java.util.UUID;
  */
 @Service
 @RequiredArgsConstructor
-public class TransactionService {
+public class TransactionServiceImpl implements TransactionService {
 
     private final ExpenseRepository expenseRepository;
     private final AccountRepository accountRepository;

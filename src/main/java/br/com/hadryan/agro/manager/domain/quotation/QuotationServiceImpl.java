@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
  */
 @Service
 @RequiredArgsConstructor
-public class QuotationService {
+public class QuotationServiceImpl implements QuotationService {
 
     private final QuotationRepository quotationRepository;
     private final AccountRepository accountRepository;

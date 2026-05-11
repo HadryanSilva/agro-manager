@@ -13,109 +13,78 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Serviço de gerenciamento de lavouras.
- * Todas as operações verificam que o usuário é membro da conta antes de prosseguir.
- */
+/** Implementação do serviço de lavouras. */
 @Service
 @RequiredArgsConstructor
-public class FarmService {
+public class FarmServiceImpl implements FarmService {
 
     private final FarmRepository farmRepository;
     private final AccountRepository accountRepository;
     private final AccountMemberRepository accountMemberRepository;
-    private final FarmActivityService activityService;
+    private final FarmActivityServiceImpl activityService;
 
+    @Override
     @Transactional
     public FarmResponse create(UUID accountId, UUID userId, FarmRequest request) {
         Account account = findAccountAndValidateMembership(accountId, userId);
-
         Farm farm = Farm.builder()
-                .account(account)
-                .name(request.name())
-                .areaValue(request.areaValue())
-                .areaUnit(request.areaUnit())
-                .lessorName(request.lessorName())
-                .leaseStartDate(request.leaseStartDate())
-                .leaseEndDate(request.leaseEndDate())
-                .leaseValue(request.leaseValue())
-                .plantingStartDate(request.plantingStartDate())
-                .plantingEndDate(request.plantingEndDate())
-                .harvestStartDate(request.harvestStartDate())
-                .harvestEndDate(request.harvestEndDate())
-                .cancelled(request.cancelled())
-                .notes(request.notes())
-                .build();
-
+                .account(account).name(request.name()).areaValue(request.areaValue())
+                .areaUnit(request.areaUnit()).lessorName(request.lessorName())
+                .leaseStartDate(request.leaseStartDate()).leaseEndDate(request.leaseEndDate())
+                .leaseValue(request.leaseValue()).plantingStartDate(request.plantingStartDate())
+                .plantingEndDate(request.plantingEndDate()).harvestStartDate(request.harvestStartDate())
+                .harvestEndDate(request.harvestEndDate()).cancelled(request.cancelled())
+                .notes(request.notes()).build();
         return FarmResponse.from(farmRepository.save(farm));
     }
 
+    @Override
     @Transactional(readOnly = true)
     public List<FarmResponse> findAll(UUID accountId, UUID userId, FarmStatus statusFilter) {
         findAccountAndValidateMembership(accountId, userId);
-
-        // Delega o filtro ao banco — evita carregar todas as lavouras em memória
         List<Farm> farms = (statusFilter == null)
                 ? farmRepository.findByAccountIdOrderByCreatedAtDesc(accountId)
                 : farmRepository.findByAccountIdAndComputedStatus(accountId, statusFilter.name());
-
-        return farms.stream()
-                .map(FarmResponse::from)
-                .toList();
+        return farms.stream().map(FarmResponse::from).toList();
     }
 
+    @Override
     @Transactional(readOnly = true)
     public FarmResponse findById(UUID accountId, UUID userId, UUID farmId) {
         findAccountAndValidateMembership(accountId, userId);
         return FarmResponse.from(findFarm(farmId, accountId));
     }
 
+    @Override
     @Transactional
     public FarmResponse update(UUID accountId, UUID userId, UUID farmId, FarmRequest request) {
         findAccountAndValidateMembership(accountId, userId);
         Farm farm = findFarm(farmId, accountId);
-
-        farm.setName(request.name());
-        farm.setAreaValue(request.areaValue());
-        farm.setAreaUnit(request.areaUnit());
-        farm.setLessorName(request.lessorName());
-        farm.setLeaseStartDate(request.leaseStartDate());
-        farm.setLeaseEndDate(request.leaseEndDate());
-        farm.setLeaseValue(request.leaseValue());
-        farm.setPlantingStartDate(request.plantingStartDate());
-        farm.setPlantingEndDate(request.plantingEndDate());
-        farm.setHarvestStartDate(request.harvestStartDate());
-        farm.setHarvestEndDate(request.harvestEndDate());
-        farm.setCancelled(request.cancelled());
+        farm.setName(request.name()); farm.setAreaValue(request.areaValue());
+        farm.setAreaUnit(request.areaUnit()); farm.setLessorName(request.lessorName());
+        farm.setLeaseStartDate(request.leaseStartDate()); farm.setLeaseEndDate(request.leaseEndDate());
+        farm.setLeaseValue(request.leaseValue()); farm.setPlantingStartDate(request.plantingStartDate());
+        farm.setPlantingEndDate(request.plantingEndDate()); farm.setHarvestStartDate(request.harvestStartDate());
+        farm.setHarvestEndDate(request.harvestEndDate()); farm.setCancelled(request.cancelled());
         farm.setNotes(request.notes());
-
-        FarmResponse updatedFarm = FarmResponse.from(farmRepository.save(farm));
-        activityService.record(
-                farmId, userId,
-                FarmActivityType.FARM_UPDATED,
-                "Dados da lavoura atualizados",
-                null
-        );
-        return updatedFarm;
+        FarmResponse updated = FarmResponse.from(farmRepository.save(farm));
+        activityService.record(farmId, userId, FarmActivityType.FARM_UPDATED, "Dados da lavoura atualizados", null);
+        return updated;
     }
 
+    @Override
     @Transactional
     public void delete(UUID accountId, UUID userId, UUID farmId) {
         findAccountAndValidateMembership(accountId, userId);
-        Farm farm = findFarm(farmId, accountId);
-        farmRepository.delete(farm);
+        farmRepository.delete(findFarm(farmId, accountId));
     }
-
-    // ── Utilitários privados ──────────────────────────────────────────────────
 
     private Account findAccountAndValidateMembership(UUID accountId, UUID userId) {
         Account account = accountRepository.findById(accountId)
                 .orElseThrow(() -> new ResourceNotFoundException("Conta", "id", accountId));
-
         if (!accountMemberRepository.existsByAccountIdAndUserId(accountId, userId)) {
             throw new BusinessException("Acesso negado a esta conta", HttpStatus.FORBIDDEN);
         }
-
         return account;
     }
 
