@@ -2,15 +2,18 @@ package br.com.hadryan.agro.manager.domain.expense;
 
 import br.com.hadryan.agro.manager.infra.security.UserPrincipal;
 import br.com.hadryan.agro.manager.shared.dto.ApiResponse;
+import br.com.hadryan.agro.manager.shared.dto.PageResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
-import java.util.List;
 import java.util.UUID;
 
 /**
@@ -43,12 +46,13 @@ public class FarmExpenseController {
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<ExpenseResponse>>> findAll(
+    public ResponseEntity<ApiResponse<PageResponse<ExpenseResponse>>> findAll(
             @PathVariable UUID accountId,
             @PathVariable UUID farmId,
-            @AuthenticationPrincipal UserPrincipal principal) {
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PageableDefault(size = 20, sort = "competenceDate", direction = Sort.Direction.DESC) Pageable pageable) {
 
-        List<ExpenseResponse> expenses = expenseService.findAll(accountId, farmId, principal.getId());
+        PageResponse<ExpenseResponse> expenses = expenseService.findAll(accountId, farmId, principal.getId(), pageable);
         return ResponseEntity.ok(ApiResponse.success(expenses));
     }
 

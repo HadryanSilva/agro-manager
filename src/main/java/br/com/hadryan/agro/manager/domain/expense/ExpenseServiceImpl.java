@@ -14,8 +14,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import br.com.hadryan.agro.manager.shared.dto.PageResponse;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import java.time.LocalDate;
-import java.util.List;
 import java.util.UUID;
 
 /**
@@ -67,12 +70,12 @@ public class ExpenseServiceImpl implements  ExpenseService {
     }
 
     @Transactional(readOnly = true)
-    public List<ExpenseResponse> findAll(UUID accountId, UUID farmId, UUID userId) {
+    public PageResponse<ExpenseResponse> findAll(UUID accountId, UUID farmId, UUID userId, Pageable pageable) {
         findFarmAndValidate(accountId, farmId, userId);
-        return expenseRepository.findByFarmIdOrderByCompetenceDateDesc(farmId)
-                .stream()
-                .map(ExpenseResponse::from)
-                .toList();
+        Page<ExpenseResponse> page = expenseRepository
+                .findByFarmIdOrderByCompetenceDateDesc(farmId, pageable)
+                .map(ExpenseResponse::from);
+        return PageResponse.of(page, expenseRepository.sumValueByFarmId(farmId));
     }
 
     @Transactional(readOnly = true)
