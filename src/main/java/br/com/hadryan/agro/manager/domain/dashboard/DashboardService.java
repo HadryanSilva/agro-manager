@@ -17,7 +17,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Serviço responsável por agregar as métricas exibidas no dashboard da conta.
@@ -74,11 +76,21 @@ public class DashboardService {
         BigDecimal totalPending  = totalExpenses.subtract(totalPaid);
 
         // ── Últimas 5 lavouras com seus totais de despesa individuais ─────────
-        List<DashboardSummary.RecentFarm> recentFarms = farms.stream()
-                .limit(5)
+        List<Farm> recentFive = farms.stream().limit(5).toList();
+        List<UUID> recentIds = recentFive.stream().map(Farm::getId).toList();
+
+        Map<UUID, BigDecimal[]> expenseTotals = expenseRepository
+                .sumValueAndPaidByFarmIds(recentIds)
+                .stream()
+                .collect(Collectors.toMap(
+                        row -> (UUID) row[0],
+                        row -> new BigDecimal[]{ (BigDecimal) row[1], (BigDecimal) row[2] }
+                ));
+
+        List<DashboardSummary.RecentFarm> recentFarms = recentFive.stream()
                 .map(f -> {
-                    BigDecimal farmTotal = expenseRepository.sumValueByFarmId(f.getId());
-                    BigDecimal farmPaid  = expenseRepository.sumPaidValueByFarmId(f.getId());
+                    BigDecimal[] totals = expenseTotals.getOrDefault(
+                            f.getId(), new BigDecimal[]{ BigDecimal.ZERO, BigDecimal.ZERO });
                     return new DashboardSummary.RecentFarm(
                             f.getId(),
                             f.getName(),
@@ -87,8 +99,8 @@ public class DashboardService {
                             f.getStatus(),
                             f.getPlantingStartDate(),
                             f.getCreatedAt(),
-                            farmTotal,
-                            farmPaid
+                            totals[0],
+                            totals[1]
                     );
                 })
                 .toList();

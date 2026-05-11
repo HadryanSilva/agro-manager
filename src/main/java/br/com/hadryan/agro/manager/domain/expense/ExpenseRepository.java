@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -16,8 +17,11 @@ import java.util.UUID;
 @Repository
 public interface ExpenseRepository extends JpaRepository<Expense, UUID> {
 
-    // Lista todas as despesas de uma lavoura ordenadas pela data de competência mais recente
+    // Lista todas as despesas de uma lavoura (para relatórios — não usar em endpoints de listagem)
     List<Expense> findByFarmIdOrderByCompetenceDateDesc(UUID farmId);
+
+    // Listagem paginada de despesas de uma lavoura
+    Page<Expense> findByFarmIdOrderByCompetenceDateDesc(UUID farmId, Pageable pageable);
 
     // Busca uma despesa garantindo que pertence à lavoura informada
     Optional<Expense> findByIdAndFarmId(UUID id, UUID farmId);
@@ -48,9 +52,10 @@ public interface ExpenseRepository extends JpaRepository<Expense, UUID> {
      * general=false filtra apenas despesas com lavoura.
      * general=null retorna todas.
      */
-    @Query("""
+    @Query(
+        value = """
             SELECT e FROM Expense e
-            LEFT JOIN e.farm f
+            LEFT JOIN FETCH e.farm f
             WHERE e.account.id = :accountId
               AND (:farmId    IS NULL OR f.id         = :farmId)
               AND (:general   IS NULL OR
@@ -63,7 +68,23 @@ public interface ExpenseRepository extends JpaRepository<Expense, UUID> {
               AND (:startDate IS NULL OR e.competenceDate >= :startDate)
               AND (:endDate   IS NULL OR e.competenceDate <= :endDate)
             ORDER BY e.competenceDate DESC, e.createdAt DESC
-            """)
+            """,
+        countQuery = """
+            SELECT COUNT(e) FROM Expense e
+            LEFT JOIN e.farm f
+            WHERE e.account.id = :accountId
+              AND (:farmId    IS NULL OR f.id         = :farmId)
+              AND (:general   IS NULL OR
+                   (:general = true  AND e.farm IS NULL) OR
+                   (:general = false AND e.farm IS NOT NULL))
+              AND (:category  IS NULL OR e.category   = :category)
+              AND (:paid      IS NULL OR
+                   (:paid = true  AND e.paymentDate IS NOT NULL) OR
+                   (:paid = false AND e.paymentDate IS NULL))
+              AND (:startDate IS NULL OR e.competenceDate >= :startDate)
+              AND (:endDate   IS NULL OR e.competenceDate <= :endDate)
+            """
+    )
     Page<Expense> findTransactions(
             @Param("accountId") UUID accountId,
             @Param("farmId")    UUID farmId,
@@ -74,6 +95,21 @@ public interface ExpenseRepository extends JpaRepository<Expense, UUID> {
             @Param("endDate")   LocalDate endDate,
             Pageable pageable
     );
+
+    /**
+     * Retorna total e total pago por lavoura em uma única query (GROUP BY).
+     * Evita N+1 ao montar lista de lavouras recentes no dashboard.
+     * Retorna Object[] { farmId, totalValue, totalPaid }.
+     */
+    @Query("""
+            SELECT e.farm.id,
+                   COALESCE(SUM(e.value), 0),
+                   COALESCE(SUM(CASE WHEN e.paymentDate IS NOT NULL THEN e.value ELSE 0 END), 0)
+            FROM Expense e
+            WHERE e.farm.id IN :farmIds
+            GROUP BY e.farm.id
+            """)
+    List<Object[]> sumValueAndPaidByFarmIds(@Param("farmIds") Collection<UUID> farmIds);
 
     /**
      * Soma total das transações filtradas — usada para o totalizador da página.
