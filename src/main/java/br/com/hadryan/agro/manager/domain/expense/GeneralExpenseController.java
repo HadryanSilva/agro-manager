@@ -1,4 +1,4 @@
 package br.com.hadryan.agro.manager.domain.expense;
 
-public interface ExpenseService {
+public class GeneralExpenseController {
 }
