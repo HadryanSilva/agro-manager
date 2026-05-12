@@ -103,8 +103,8 @@ class ExpenseIntegrationTest extends MockMvcIntegrationTestBase {
                         .header("Authorization", "Bearer " + ctx.token()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data").isArray())
-                .andExpect(jsonPath("$.data.length()").value(2));
+                .andExpect(jsonPath("$.data.content").isArray())
+                .andExpect(jsonPath("$.data.content.length()").value(2));
     }
 
     @Test
@@ -176,7 +176,7 @@ class ExpenseIntegrationTest extends MockMvcIntegrationTestBase {
         mockMvc.perform(get("/accounts/" + ctx.accountId() + "/farms/" + ctx.farmId() + "/expenses")
                         .header("Authorization", "Bearer " + ctx.token()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.length()").value(0));
+                .andExpect(jsonPath("$.data.content.length()").value(0));
     }
 
     @Test
