@@ -43,3 +43,5 @@ out/
 .claude
 CLAUDE.md
 .superpowers
+mcp-config.json
+MCP_CONFIG.md
