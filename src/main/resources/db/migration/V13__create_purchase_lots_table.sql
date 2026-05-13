@@ -1,4 +1,4 @@
--- Lotes de compra do modo atravessador.
+-- Lotes de compra do modo comprador.
 -- Cada lote representa uma negociação com um fornecedor em uma data específica.
 -- O total em Kg é derivado da soma de purchase_trucks — não armazenado aqui.
 

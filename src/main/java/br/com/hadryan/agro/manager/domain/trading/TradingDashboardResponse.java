@@ -3,7 +3,7 @@ package br.com.hadryan.agro.manager.domain.trading;
 import java.math.BigDecimal;
 
 /**
- * Resposta do dashboard do modo atravessador.
+ * Resposta do dashboard do modo comprador.
  * Métricas agregadas da conta no período ou total histórico.
  */
 public record TradingDashboardResponse(

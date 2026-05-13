@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Endpoints para gerenciamento de fornecedores do modo atravessador.
+ * Endpoints para gerenciamento de fornecedores do modo comprador.
  * Todas as operações requerem que o usuário seja membro da conta.
  */
 @RestController

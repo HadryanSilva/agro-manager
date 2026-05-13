@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Lote de compra do modo atravessador.
+ * Lote de compra do modo comprador.
  * Representa uma negociação com um fornecedor: data, preço por Kg acordado.
  * O volume total em Kg é derivado da soma dos caminhões (purchase_trucks).
  */

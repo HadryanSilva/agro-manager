@@ -3,7 +3,7 @@ package br.com.hadryan.agro.manager.domain.trading;
 /**
  * Status de um lote de compra.
  * Atualizado automaticamente ao registrar ou remover vendas,
- * e pode ser encerrado manualmente pelo atravessador.
+ * e pode ser encerrado manualmente pelo comprador.
  */
 public enum PurchaseLotStatus {
 
