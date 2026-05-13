@@ -109,4 +109,23 @@ public abstract class MockMvcIntegrationTestBase extends IntegrationTestBase {
         return objectMapper.readTree(result.getResponse().getContentAsString())
                 .path("data").path("id").asText();
     }
+
+    protected String createTradingOrder(String token, String accountId) throws Exception {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("customerName", "Cliente Teste");
+        payload.put("quantityKg", 5000.0);
+        payload.put("product", "Soja");
+        payload.put("orderDate", "2026-05-10");
+
+        MvcResult result = mockMvc.perform(
+                        post("/accounts/" + accountId + "/trading/orders")
+                                .header("Authorization", "Bearer " + token)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        return objectMapper.readTree(result.getResponse().getContentAsString())
+                .path("data").path("id").asText();
+    }
 }

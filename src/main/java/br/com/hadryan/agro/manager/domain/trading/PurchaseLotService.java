@@ -33,27 +33,38 @@ public class PurchaseLotService {
     private final PurchaseLotRepository lotRepository;
     private final LotSaleRepository saleRepository;
     private final TradingSupplierRepository supplierRepository;
+    private final CustomerOrderRepository customerOrderRepository;
     private final AccountRepository accountRepository;
     private final AccountMemberRepository accountMemberRepository;
 
     // ── Lotes de compra ───────────────────────────────────────────────────────
 
     @Transactional
-    public PurchaseLotDetailResponse createLot(UUID accountId, UUID userId, PurchaseLotRequest request) {
+    public PurchaseLotDetailResponse createLot(UUID accountId, UUID userId, CreatePurchaseLotRequest request) {
         Account account = validateAndGetAccount(accountId, userId);
+
+        CustomerOrder customerOrder = customerOrderRepository.findByIdAndAccountId(request.customerOrderId(), accountId)
+                .orElseThrow(() -> new ResourceNotFoundException("Pedido", "id", request.customerOrderId()));
+
+        if (lotRepository.existsByCustomerOrderId(request.customerOrderId())) {
+            throw new BusinessException(
+                    "Este pedido já está vinculado a um lote de compra.",
+                    HttpStatus.CONFLICT
+            );
+        }
 
         TradingSupplier supplier = supplierRepository.findByIdAndAccountId(request.supplierId(), accountId)
                 .orElseThrow(() -> new ResourceNotFoundException("Fornecedor", "id", request.supplierId()));
 
         PurchaseLot lot = PurchaseLot.builder()
                 .account(account)
+                .customerOrder(customerOrder)
                 .supplier(supplier)
                 .purchaseDate(request.purchaseDate())
                 .pricePerKg(request.pricePerKg())
                 .notes(request.notes())
                 .build();
 
-        // Adiciona os caminhões ao lote
         request.trucks().forEach(t -> {
             PurchaseTruck truck = PurchaseTruck.builder()
                     .lot(lot)
@@ -65,7 +76,6 @@ public class PurchaseLotService {
         });
 
         PurchaseLot saved = lotRepository.save(lot);
-        // Lote recém-criado não tem vendas ainda — lista vazia segura
         return PurchaseLotDetailResponse.from(saved, List.of());
     }
 

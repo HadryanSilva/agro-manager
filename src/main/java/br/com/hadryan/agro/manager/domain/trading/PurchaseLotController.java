@@ -41,7 +41,7 @@ public class PurchaseLotController {
     public ResponseEntity<ApiResponse<PurchaseLotDetailResponse>> createLot(
             @PathVariable UUID accountId,
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestBody @Valid PurchaseLotRequest request) {
+            @RequestBody @Valid CreatePurchaseLotRequest request) {
 
         PurchaseLotDetailResponse response = lotService.createLot(accountId, principal.getId(), request);
 
