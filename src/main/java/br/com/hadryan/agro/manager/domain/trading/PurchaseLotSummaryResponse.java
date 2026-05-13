@@ -5,15 +5,12 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-/**
- * Resposta resumida de um lote (para listagem).
- * Totais recebidos como parâmetros já calculados via queries de agregação —
- * não acessa coleções lazy para evitar LazyInitializationException.
- */
 public record PurchaseLotSummaryResponse(
         UUID id,
         UUID supplierId,
         String supplierName,
+        UUID customerOrderId,
+        String customerName,
         LocalDate purchaseDate,
         BigDecimal pricePerKg,
         PurchaseLotStatus status,
@@ -24,17 +21,18 @@ public record PurchaseLotSummaryResponse(
         String notes,
         LocalDateTime createdAt
 ) {
-    // totalPurchasedKg e totalSoldKg calculados no banco — nenhuma coleção lazy é acessada
     public static PurchaseLotSummaryResponse from(PurchaseLot lot,
                                                   BigDecimal totalPurchasedKg,
                                                   BigDecimal totalSoldKg) {
-        BigDecimal remaining  = totalPurchasedKg.subtract(totalSoldKg);
-        BigDecimal totalCost  = totalPurchasedKg.multiply(lot.getPricePerKg());
+        BigDecimal remaining = totalPurchasedKg.subtract(totalSoldKg);
+        BigDecimal totalCost = totalPurchasedKg.multiply(lot.getPricePerKg());
 
         return new PurchaseLotSummaryResponse(
                 lot.getId(),
                 lot.getSupplier().getId(),
                 lot.getSupplier().getName(),
+                lot.getCustomerOrder().getId(),
+                lot.getCustomerOrder().getCustomerName(),
                 lot.getPurchaseDate(),
                 lot.getPricePerKg(),
                 lot.getStatus(),
@@ -47,4 +45,3 @@ public record PurchaseLotSummaryResponse(
         );
     }
 }
-
