@@ -1,5 +1,5 @@
--- Cadastro de fornecedores do modo atravessador.
--- Cada fornecedor é um produtor de quem o atravessador compra melancia.
+-- Cadastro de fornecedores do modo comprador.
+-- Cada fornecedor é um produtor de quem o comprador compra melancia.
 -- Escopo por conta (account_id) — cada conta mantém sua própria lista.
 
 CREATE TABLE trading_suppliers (

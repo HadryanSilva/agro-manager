@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Serviço de gerenciamento de fornecedores do modo atravessador.
+ * Serviço de gerenciamento de fornecedores do modo comprador.
  */
 @Service
 @RequiredArgsConstructor

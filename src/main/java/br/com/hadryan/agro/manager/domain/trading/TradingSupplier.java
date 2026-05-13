@@ -9,7 +9,7 @@ import java.time.ZoneOffset;
 import java.util.UUID;
 
 /**
- * Fornecedor do modo atravessador — produtor de quem o atravessador compra melancia.
+ * Fornecedor do modo comprador — produtor de quem o comprador compra melancia.
  * Escopo por conta; cada conta mantém sua própria base de fornecedores.
  */
 @Entity

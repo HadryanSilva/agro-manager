@@ -9,7 +9,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Repositório de fornecedores do modo atravessador.
+ * Repositório de fornecedores do modo comprador.
  */
 public interface TradingSupplierRepository extends JpaRepository<TradingSupplier, UUID> {
 
