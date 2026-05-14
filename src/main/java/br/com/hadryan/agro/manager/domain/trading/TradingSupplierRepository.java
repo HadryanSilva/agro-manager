@@ -18,4 +18,7 @@ public interface TradingSupplierRepository extends JpaRepository<TradingSupplier
     Optional<TradingSupplier> findByIdAndAccountId(UUID id, UUID accountId);
 
     long countByAccountId(UUID accountId);
+
+    @Query("SELECT COUNT(l) > 0 FROM OrderSupplierLeg l WHERE l.supplier.id = :supplierId")
+    boolean hasAssociatedLegs(@Param("supplierId") UUID supplierId);
 }
