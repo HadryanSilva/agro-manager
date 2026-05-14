@@ -19,6 +19,9 @@ public record PurchaseTruckRequest(
         @DecimalMin(value = "0.01", message = "Quantidade deve ser maior que zero")
         BigDecimal quantityKg,
 
+        @DecimalMin(value = "0.00", inclusive = true, message = "Valor do frete não pode ser negativo")
+        BigDecimal freightValue,
+
         String notes
 ) {
 }
