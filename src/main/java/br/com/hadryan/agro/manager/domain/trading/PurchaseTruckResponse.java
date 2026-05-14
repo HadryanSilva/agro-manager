@@ -10,9 +10,16 @@ public record PurchaseTruckResponse(
         UUID id,
         String truckPlate,
         BigDecimal quantityKg,
+        BigDecimal freightValue,
         String notes
 ) {
     public static PurchaseTruckResponse from(PurchaseTruck t) {
-        return new PurchaseTruckResponse(t.getId(), t.getTruckPlate(), t.getQuantityKg(), t.getNotes());
+        return new PurchaseTruckResponse(
+                t.getId(),
+                t.getTruckPlate(),
+                t.getQuantityKg(),
+                t.getFreightValue(),
+                t.getNotes()
+        );
     }
 }
