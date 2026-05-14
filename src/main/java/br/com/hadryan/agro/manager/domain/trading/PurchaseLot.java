@@ -39,6 +39,11 @@ public class PurchaseLot {
     @JoinColumn(name = "supplier_id", nullable = false)
     private TradingSupplier supplier;
 
+    // Pedido do cliente que originou esta compra — sempre obrigatório (1:1, unidirecional)
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "customer_order_id", nullable = false, unique = true)
+    private CustomerOrder customerOrder;
+
     @Column(name = "purchase_date", nullable = false)
     private LocalDate purchaseDate;
 

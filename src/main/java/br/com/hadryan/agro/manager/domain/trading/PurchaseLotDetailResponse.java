@@ -6,16 +6,13 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Resposta detalhada de um lote com caminhões de compra, vendas e métricas financeiras.
- * Recebe o lote (com trucks carregados) e a lista de vendas (com trucks carregados)
- * como parâmetros separados — evita MultipleBagFetchException e acesso lazy.
- */
 public record PurchaseLotDetailResponse(
         UUID id,
         UUID supplierId,
         String supplierName,
         String supplierCity,
+        UUID customerOrderId,
+        String customerName,
         LocalDate purchaseDate,
         BigDecimal pricePerKg,
         PurchaseLotStatus status,
@@ -30,7 +27,6 @@ public record PurchaseLotDetailResponse(
         String notes,
         LocalDateTime createdAt
 ) {
-    // lot deve ter trucks carregados; sales deve ter trucks carregados — ambos via JOIN FETCH separados
     public static PurchaseLotDetailResponse from(PurchaseLot lot, List<LotSale> sales) {
         List<PurchaseTruckResponse> truckResponses = lot.getTrucks().stream()
                 .map(PurchaseTruckResponse::from)
@@ -60,6 +56,8 @@ public record PurchaseLotDetailResponse(
                 lot.getSupplier().getId(),
                 lot.getSupplier().getName(),
                 lot.getSupplier().getCity(),
+                lot.getCustomerOrder().getId(),
+                lot.getCustomerOrder().getCustomerName(),
                 lot.getPurchaseDate(),
                 lot.getPricePerKg(),
                 lot.getStatus(),
@@ -76,4 +74,3 @@ public record PurchaseLotDetailResponse(
         );
     }
 }
-

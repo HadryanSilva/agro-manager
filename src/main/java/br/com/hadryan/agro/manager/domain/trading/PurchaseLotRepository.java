@@ -18,20 +18,20 @@ public interface PurchaseLotRepository extends JpaRepository<PurchaseLot, UUID> 
 
     // ── Listagens paginadas ───────────────────────────────────────────────────
 
-    // Listagem por conta com supplier carregado via JOIN FETCH (evita N+1 no nome do fornecedor)
-    @Query(value = "SELECT pl FROM PurchaseLot pl JOIN FETCH pl.supplier s WHERE pl.account.id = :accountId",
+    // Listagem por conta com supplier e customerOrder carregados via JOIN FETCH (evita N+1)
+    @Query(value = "SELECT pl FROM PurchaseLot pl JOIN FETCH pl.supplier s JOIN FETCH pl.customerOrder co WHERE pl.account.id = :accountId",
             countQuery = "SELECT COUNT(pl) FROM PurchaseLot pl WHERE pl.account.id = :accountId")
     Page<PurchaseLot> findByAccountIdWithSupplier(@Param("accountId") UUID accountId, Pageable pageable);
 
-    // Listagem filtrada por status com supplier
-    @Query(value = "SELECT pl FROM PurchaseLot pl JOIN FETCH pl.supplier s WHERE pl.account.id = :accountId AND pl.status = :status",
+    // Listagem filtrada por status com supplier e customerOrder
+    @Query(value = "SELECT pl FROM PurchaseLot pl JOIN FETCH pl.supplier s JOIN FETCH pl.customerOrder co WHERE pl.account.id = :accountId AND pl.status = :status",
             countQuery = "SELECT COUNT(pl) FROM PurchaseLot pl WHERE pl.account.id = :accountId AND pl.status = :status")
     Page<PurchaseLot> findByAccountIdAndStatusWithSupplier(@Param("accountId") UUID accountId,
                                                            @Param("status") PurchaseLotStatus status,
                                                            Pageable pageable);
 
-    // Listagem por fornecedor com supplier
-    @Query(value = "SELECT pl FROM PurchaseLot pl JOIN FETCH pl.supplier s WHERE pl.account.id = :accountId AND pl.supplier.id = :supplierId",
+    // Listagem por fornecedor com supplier e customerOrder
+    @Query(value = "SELECT pl FROM PurchaseLot pl JOIN FETCH pl.supplier s JOIN FETCH pl.customerOrder co WHERE pl.account.id = :accountId AND pl.supplier.id = :supplierId",
             countQuery = "SELECT COUNT(pl) FROM PurchaseLot pl WHERE pl.account.id = :accountId AND pl.supplier.id = :supplierId")
     Page<PurchaseLot> findByAccountIdAndSupplierIdWithSupplier(@Param("accountId") UUID accountId,
                                                                @Param("supplierId") UUID supplierId,
@@ -39,9 +39,10 @@ public interface PurchaseLotRepository extends JpaRepository<PurchaseLot, UUID> 
 
     // ── Detalhe (correção: busca separada para cada coleção — evita MultipleBagFetchException) ──
 
-    // Carrega supplier + caminhões de compra. As vendas são carregadas separadamente pelo serviço.
+    // Carrega supplier + customerOrder + caminhões de compra. As vendas são carregadas separadamente pelo serviço.
     @Query("SELECT pl FROM PurchaseLot pl " +
             "JOIN FETCH pl.supplier s " +
+            "JOIN FETCH pl.customerOrder co " +
             "LEFT JOIN FETCH pl.trucks t " +
             "WHERE pl.id = :id AND pl.account.id = :accountId")
     Optional<PurchaseLot> findWithTrucksByIdAndAccountId(@Param("id") UUID id,
@@ -73,4 +74,11 @@ public interface PurchaseLotRepository extends JpaRepository<PurchaseLot, UUID> 
     long countByAccountId(UUID accountId);
 
     long countByAccountIdAndStatus(UUID accountId, PurchaseLotStatus status);
+
+    // Verifica se existe lote vinculado a um pedido — para derivar status FULFILLED
+    boolean existsByCustomerOrderId(UUID customerOrderId);
+
+    // Retorna IDs de todos os pedidos com lote na conta — resolve status em bulk (sem N+1)
+    @Query("SELECT pl.customerOrder.id FROM PurchaseLot pl WHERE pl.account.id = :accountId")
+    List<UUID> findCustomerOrderIdsByAccountId(@Param("accountId") UUID accountId);
 }
