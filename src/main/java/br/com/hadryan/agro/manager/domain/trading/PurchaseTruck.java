@@ -34,6 +34,9 @@ public class PurchaseTruck {
     @Column(name = "quantity_kg", nullable = false, precision = 12, scale = 2)
     private BigDecimal quantityKg;
 
+    @Column(name = "freight_value", precision = 12, scale = 2)
+    private BigDecimal freightValue;
+
     @Column(columnDefinition = "TEXT")
     private String notes;
 
