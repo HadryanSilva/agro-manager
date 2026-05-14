@@ -59,6 +59,7 @@ public class PurchaseLotService {
                     .lot(lot)
                     .truckPlate(t.truckPlate().toUpperCase().trim())
                     .quantityKg(t.quantityKg())
+                    .freightValue(t.freightValue())
                     .notes(t.notes())
                     .build();
             lot.getTrucks().add(truck);
@@ -147,6 +148,7 @@ public class PurchaseLotService {
                     .lot(lot)
                     .truckPlate(t.truckPlate().toUpperCase().trim())
                     .quantityKg(t.quantityKg())
+                    .freightValue(t.freightValue())
                     .notes(t.notes())
                     .build();
             lot.getTrucks().add(truck);
