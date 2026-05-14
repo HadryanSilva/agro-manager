@@ -16,4 +16,6 @@ public interface TradingClientRepository extends JpaRepository<TradingClient, UU
     List<TradingClient> searchByName(@Param("accountId") UUID accountId, @Param("name") String name);
 
     Optional<TradingClient> findByIdAndAccountId(UUID id, UUID accountId);
+
+    long countByAccountId(UUID accountId);
 }
