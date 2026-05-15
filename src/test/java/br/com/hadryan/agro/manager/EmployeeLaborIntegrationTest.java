@@ -100,4 +100,83 @@ class EmployeeLaborIntegrationTest extends MockMvcIntegrationTestBase {
         return objectMapper.readTree(result.getResponse().getContentAsString())
                 .path("data").path("id").asText();
     }
+
+    @Test
+    @DisplayName("Deve criar diaria geral e diaria vinculada a lavoura")
+    void shouldCreateGeneralAndFarmWorkEntries() throws Exception {
+        var ctx = setup();
+        String employeeId = createEmployee(ctx.token(), ctx.accountId(), "Maria Diarista", 100.00);
+
+        String generalEntryId = createWorkEntry(ctx.token(), ctx.accountId(), employeeId, null, "2026-05-11", null);
+        String farmEntryId = createWorkEntry(ctx.token(), ctx.accountId(), employeeId, ctx.farmId(), "2026-05-12", 140.00);
+
+        mockMvc.perform(get("/accounts/" + ctx.accountId() + "/employee-work-entries")
+                        .param("employeeId", employeeId)
+                        .param("paid", "false")
+                        .header("Authorization", "Bearer " + ctx.token()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(2))
+                .andExpect(jsonPath("$.data.content[0].id").value(farmEntryId))
+                .andExpect(jsonPath("$.data.content[0].farmId").value(ctx.farmId()))
+                .andExpect(jsonPath("$.data.content[0].dailyRate").value(140.00))
+                .andExpect(jsonPath("$.data.content[0].paid").value(false))
+                .andExpect(jsonPath("$.data.content[1].id").value(generalEntryId))
+                .andExpect(jsonPath("$.data.content[1].farmId").doesNotExist())
+                .andExpect(jsonPath("$.data.content[1].dailyRate").value(100.00));
+    }
+
+    @Test
+    @DisplayName("Deve rejeitar diaria duplicada e diaria para funcionario inativo")
+    void shouldRejectDuplicateAndInactiveEmployeeWorkEntry() throws Exception {
+        var ctx = setup();
+        String employeeId = createEmployee(ctx.token(), ctx.accountId(), "Pedro Diarista", 90.00);
+        createWorkEntry(ctx.token(), ctx.accountId(), employeeId, null, "2026-05-13", null);
+
+        Map<String, Object> duplicatePayload = new HashMap<>();
+        duplicatePayload.put("employeeId", employeeId);
+        duplicatePayload.put("workDate", "2026-05-13");
+
+        mockMvc.perform(post("/accounts/" + ctx.accountId() + "/employee-work-entries")
+                        .header("Authorization", "Bearer " + ctx.token())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(duplicatePayload)))
+                .andExpect(status().isConflict());
+
+        mockMvc.perform(patch("/accounts/" + ctx.accountId() + "/employees/" + employeeId + "/deactivate")
+                        .header("Authorization", "Bearer " + ctx.token()))
+                .andExpect(status().isOk());
+
+        Map<String, Object> inactivePayload = new HashMap<>();
+        inactivePayload.put("employeeId", employeeId);
+        inactivePayload.put("workDate", "2026-05-14");
+
+        mockMvc.perform(post("/accounts/" + ctx.accountId() + "/employee-work-entries")
+                        .header("Authorization", "Bearer " + ctx.token())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(inactivePayload)))
+                .andExpect(status().isBadRequest());
+    }
+
+    private String createWorkEntry(String token, String accountId, String employeeId, String farmId,
+                                   String workDate, Double dailyRate) throws Exception {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("employeeId", employeeId);
+        if (farmId != null) {
+            payload.put("farmId", farmId);
+        }
+        payload.put("workDate", workDate);
+        if (dailyRate != null) {
+            payload.put("dailyRate", dailyRate);
+        }
+
+        MvcResult result = mockMvc.perform(post("/accounts/" + accountId + "/employee-work-entries")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        return objectMapper.readTree(result.getResponse().getContentAsString())
+                .path("data").path("id").asText();
+    }
 }
