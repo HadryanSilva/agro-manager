@@ -1,6 +1,7 @@
 package br.com.hadryan.agro.manager.domain.farm;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
@@ -18,4 +19,8 @@ public interface FarmActivityRepository extends JpaRepository<FarmActivity, UUID
             ORDER BY a.createdAt DESC
             """)
     List<FarmActivity> findByFarmIdOrderByCreatedAtDesc(UUID farmId);
+
+    @Modifying
+    @Query("DELETE FROM FarmActivity a WHERE a.farm.account.id = :accountId")
+    void deleteByFarmAccountId(UUID accountId);
 }

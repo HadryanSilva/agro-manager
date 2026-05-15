@@ -1,5 +1,14 @@
 package br.com.hadryan.agro.manager.domain.account;
 
+import br.com.hadryan.agro.manager.domain.expense.ExpenseRepository;
+import br.com.hadryan.agro.manager.domain.farm.FarmActivityRepository;
+import br.com.hadryan.agro.manager.domain.farm.FarmRepository;
+import br.com.hadryan.agro.manager.domain.quotation.QuotationRepository;
+import br.com.hadryan.agro.manager.domain.trading.ClientOrderRepository;
+import br.com.hadryan.agro.manager.domain.trading.OrderSupplierLegRepository;
+import br.com.hadryan.agro.manager.domain.trading.OrderTruckRepository;
+import br.com.hadryan.agro.manager.domain.trading.TradingClientRepository;
+import br.com.hadryan.agro.manager.domain.trading.TradingSupplierRepository;
 import br.com.hadryan.agro.manager.domain.user.User;
 import br.com.hadryan.agro.manager.domain.user.UserRepository;
 import br.com.hadryan.agro.manager.shared.exception.BusinessException;
@@ -23,6 +32,16 @@ public class AccountServiceImpl implements AccountService {
 
     private final AccountRepository accountRepository;
     private final AccountMemberRepository accountMemberRepository;
+    private final AccountInviteRepository accountInviteRepository;
+    private final OrderTruckRepository orderTruckRepository;
+    private final OrderSupplierLegRepository orderSupplierLegRepository;
+    private final ClientOrderRepository clientOrderRepository;
+    private final FarmActivityRepository farmActivityRepository;
+    private final ExpenseRepository expenseRepository;
+    private final QuotationRepository quotationRepository;
+    private final FarmRepository farmRepository;
+    private final TradingClientRepository tradingClientRepository;
+    private final TradingSupplierRepository tradingSupplierRepository;
     private final UserRepository userRepository;
 
     @Override
@@ -101,6 +120,18 @@ public class AccountServiceImpl implements AccountService {
                     HttpStatus.UNPROCESSABLE_CONTENT);
         }
 
+        // Deletar na ordem correta respeitando as FKs
+        orderTruckRepository.deleteByLegOrderAccountId(accountId);
+        orderSupplierLegRepository.deleteByOrderAccountId(accountId);
+        clientOrderRepository.deleteByAccountId(accountId);
+        farmActivityRepository.deleteByFarmAccountId(accountId);
+        expenseRepository.deleteByAccountId(accountId);
+        quotationRepository.deleteByAccountId(accountId);
+        farmRepository.deleteByAccountId(accountId);
+        tradingClientRepository.deleteByAccountId(accountId);
+        tradingSupplierRepository.deleteByAccountId(accountId);
+        accountInviteRepository.deleteByAccountId(accountId);
+        accountMemberRepository.deleteByAccountId(accountId);
         accountRepository.delete(account);
     }
 }

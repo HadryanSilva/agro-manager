@@ -1,6 +1,7 @@
 package br.com.hadryan.agro.manager.domain.trading;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -18,4 +19,8 @@ public interface TradingClientRepository extends JpaRepository<TradingClient, UU
     Optional<TradingClient> findByIdAndAccountId(UUID id, UUID accountId);
 
     long countByAccountId(UUID accountId);
+
+    @Modifying
+    @Query("DELETE FROM TradingClient c WHERE c.account.id = :accountId")
+    void deleteByAccountId(@Param("accountId") UUID accountId);
 }

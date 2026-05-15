@@ -1,6 +1,7 @@
 package br.com.hadryan.agro.manager.domain.quotation;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
@@ -26,4 +27,8 @@ public interface QuotationRepository extends JpaRepository<Quotation, UUID> {
     // Lista nomes distintos de produtos para sugestão de autocomplete
     @Query("SELECT DISTINCT q.productName FROM Quotation q WHERE q.account.id = :accountId ORDER BY q.productName")
     List<String> findDistinctProductNamesByAccountId(UUID accountId);
+
+    @Modifying
+    @Query("DELETE FROM Quotation q WHERE q.account.id = :accountId")
+    void deleteByAccountId(UUID accountId);
 }
