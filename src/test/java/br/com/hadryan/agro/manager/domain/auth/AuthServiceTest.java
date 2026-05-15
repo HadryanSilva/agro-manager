@@ -57,24 +57,39 @@ class AuthServiceTest {
     void register_success() {
         RegisterRequest request = new RegisterRequest("João", "joao@test.com", "senha123");
 
-        when(userRepository.existsByEmail("joao@test.com")).thenReturn(false);
+        when(userRepository.existsByEmailIgnoreCase("joao@test.com")).thenReturn(false);
         when(passwordEncoder.encode("senha123")).thenReturn("hashed");
         when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
         AuthResponse response = authService.register(request);
 
         assertThat(response.accessToken()).isEqualTo("access-token");
-        assertThat(response.refreshToken()).isEqualTo("refresh-token");
         assertThat(response.tokenType()).isEqualTo("Bearer");
         assertThat(response.expiresIn()).isEqualTo(900L);
+        assertThat(response.refreshToken()).isEqualTo("refresh-token");
         verify(userRepository).save(any(User.class));
+    }
+
+    @Test
+    @DisplayName("Deve normalizar e-mail antes de verificar duplicidade e salvar usuário")
+    void register_normalizesEmail() {
+        RegisterRequest request = new RegisterRequest("João", "  Joao@Test.COM  ", "senha123");
+
+        when(userRepository.existsByEmailIgnoreCase("joao@test.com")).thenReturn(false);
+        when(passwordEncoder.encode("senha123")).thenReturn("hashed");
+        when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        authService.register(request);
+
+        verify(userRepository).existsByEmailIgnoreCase("joao@test.com");
+        verify(userRepository).save(argThat(user -> "joao@test.com".equals(user.getEmail())));
     }
 
     @Test
     @DisplayName("Deve lançar BusinessException quando e-mail já está cadastrado")
     void register_duplicateEmail() {
         RegisterRequest request = new RegisterRequest("João", "joao@test.com", "senha123");
-        when(userRepository.existsByEmail("joao@test.com")).thenReturn(true);
+        when(userRepository.existsByEmailIgnoreCase("joao@test.com")).thenReturn(true);
 
         assertThatThrownBy(() -> authService.register(request))
                 .isInstanceOf(BusinessException.class)
@@ -93,12 +108,31 @@ class AuthServiceTest {
                 .id(UUID.randomUUID()).email("joao@test.com")
                 .authProvider(AuthProvider.LOCAL).build();
 
-        when(userRepository.findByEmail("joao@test.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmailIgnoreCase("joao@test.com")).thenReturn(Optional.of(user));
 
         AuthResponse response = authService.login(request);
 
         assertThat(response.accessToken()).isEqualTo("access-token");
         verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
+    }
+
+    @Test
+    @DisplayName("Deve normalizar e-mail antes de autenticar e buscar usuário")
+    void login_normalizesEmail() {
+        LoginRequest request = new LoginRequest("  Joao@Test.COM  ", "senha123");
+        User user = User.builder()
+                .id(UUID.randomUUID()).email("joao@test.com")
+                .authProvider(AuthProvider.LOCAL).build();
+
+        when(userRepository.findByEmailIgnoreCase("joao@test.com")).thenReturn(Optional.of(user));
+
+        authService.login(request);
+
+        verify(authenticationManager).authenticate(argThat(authentication ->
+                authentication instanceof UsernamePasswordAuthenticationToken
+                        && "joao@test.com".equals(authentication.getPrincipal())
+                        && "senha123".equals(authentication.getCredentials())));
+        verify(userRepository).findByEmailIgnoreCase("joao@test.com");
     }
 
     @Test
@@ -112,7 +146,7 @@ class AuthServiceTest {
         assertThatThrownBy(() -> authService.login(request))
                 .isInstanceOf(BadCredentialsException.class);
 
-        verify(userRepository, never()).findByEmail(any());
+        verify(userRepository, never()).findByEmailIgnoreCase(any());
     }
 
     // ── refresh ───────────────────────────────────────────────────────────────
@@ -123,13 +157,12 @@ class AuthServiceTest {
         UUID userId = UUID.randomUUID();
         User user = User.builder().id(userId).email("joao@test.com")
                 .authProvider(AuthProvider.LOCAL).build();
-        RefreshTokenRequest request = new RefreshTokenRequest("valid-refresh-token");
 
         when(jwtService.extractUserIdIfValid("valid-refresh-token"))
                 .thenReturn(Optional.of(userId.toString()));
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
 
-        AuthResponse response = authService.refresh(request);
+        AuthResponse response = authService.refresh("valid-refresh-token");
 
         assertThat(response.accessToken()).isEqualTo("access-token");
         assertThat(response.refreshToken()).isEqualTo("refresh-token");
@@ -138,10 +171,9 @@ class AuthServiceTest {
     @Test
     @DisplayName("Deve lançar BusinessException quando refresh token é inválido")
     void refresh_invalidToken() {
-        RefreshTokenRequest request = new RefreshTokenRequest("invalid-token");
         when(jwtService.extractUserIdIfValid("invalid-token")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> authService.refresh(request))
+        assertThatThrownBy(() -> authService.refresh("invalid-token"))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("inválido ou expirado");
 
@@ -152,13 +184,11 @@ class AuthServiceTest {
     @DisplayName("Deve lançar ResourceNotFoundException quando usuário do token não existe mais")
     void refresh_userNotFound() {
         UUID userId = UUID.randomUUID();
-        RefreshTokenRequest request = new RefreshTokenRequest("valid-token");
-
         when(jwtService.extractUserIdIfValid("valid-token"))
                 .thenReturn(Optional.of(userId.toString()));
         when(userRepository.findById(userId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> authService.refresh(request))
+        assertThatThrownBy(() -> authService.refresh("valid-token"))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 }

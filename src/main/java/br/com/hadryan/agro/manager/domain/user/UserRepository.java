@@ -9,11 +9,9 @@ import java.util.UUID;
 @Repository
 public interface UserRepository extends JpaRepository<User, UUID> {
 
-    Optional<User> findByEmail(String email);
-
     Optional<User> findByEmailIgnoreCase(String username);
 
-    boolean existsByEmail(String email);
+    boolean existsByEmailIgnoreCase(String email);
 
     // Utilizado para localizar usuários autenticados via OAuth2
     Optional<User> findByProviderIdAndAuthProvider(String providerId, AuthProvider authProvider);

@@ -1,5 +1,6 @@
 package br.com.hadryan.agro.manager.infra.security;
 
+import br.com.hadryan.agro.manager.domain.user.EmailNormalizer;
 import br.com.hadryan.agro.manager.domain.user.User;
 import br.com.hadryan.agro.manager.domain.user.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +26,8 @@ public class CustomUserDetailsService implements UserDetailsService {
     @Override
     @Transactional(readOnly = true)
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        User user = userRepository.findByEmail(email)
+        String normalizedEmail = EmailNormalizer.normalize(email);
+        User user = userRepository.findByEmailIgnoreCase(normalizedEmail)
                 .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado: " + email));
         return UserPrincipal.from(user);
     }

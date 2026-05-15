@@ -94,7 +94,7 @@ management:
 
   endpoint:
     health:
-      show-details: always
+      show-details: never
     prometheus:
       enabled: true
 

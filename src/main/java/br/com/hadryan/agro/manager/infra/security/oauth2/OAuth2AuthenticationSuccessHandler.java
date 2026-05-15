@@ -7,6 +7,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
@@ -17,29 +19,26 @@ import java.io.IOException;
 /**
  * Handler executado após autenticação OAuth2 bem-sucedida.
  * Gera os tokens JWT e redireciona o usuário para o frontend
- * com os tokens como parâmetros de URL.
+ * com o access token como parâmetro de URL.
  *
- * O frontend extrai os tokens da URL, armazena em memória e limpa a barra de endereços.
- *
- * NOTA DE SEGURANÇA: tokens em query params ficam expostos em:
- *   - histórico do browser
- *   - logs de servidor/proxy (access logs)
- *   - header Referer de navegações subsequentes
- *
- * A solução recomendada a longo prazo é substituir os query params por cookies
- * HttpOnly + Secure + SameSite=Strict, o que requer coordenação com o frontend.
- * Enquanto isso, o refreshToken tem vida de 7 dias e o accessToken de 15 minutos,
- * minimizando a janela de exposição.
+ * O refresh token é enviado em cookie HttpOnly e usado somente pelo endpoint
+ * /auth/refresh. O frontend extrai apenas o access token da URL e o mantém
+ * em memória.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
+    private static final String REFRESH_TOKEN_COOKIE = "refresh_token";
+
     private final JwtService jwtService;
 
     @Value("${app.frontend-url}")
     private String frontendUrl;
+
+    @Value("${app.jwt.refresh-expiration}")
+    private long refreshExpiration;
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request,
@@ -51,12 +50,20 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
         String accessToken  = jwtService.generateAccessToken(principal.getId(), principal.getEmail());
         String refreshToken = jwtService.generateRefreshToken(principal.getId(), principal.getEmail());
 
+        ResponseCookie refreshCookie = ResponseCookie.from(REFRESH_TOKEN_COOKIE, refreshToken)
+                .httpOnly(true)
+                .secure(request.isSecure())
+                .sameSite("Lax")
+                .path("/auth/refresh")
+                .maxAge(refreshExpiration / 1000)
+                .build();
+
         String redirectUrl = UriComponentsBuilder.fromUriString(frontendUrl + "/oauth2/callback")
                 .queryParam("accessToken", accessToken)
-                .queryParam("refreshToken", refreshToken)
                 .build()
                 .toUriString();
 
+        response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.toString());
         getRedirectStrategy().sendRedirect(request, response, redirectUrl);
     }
 }

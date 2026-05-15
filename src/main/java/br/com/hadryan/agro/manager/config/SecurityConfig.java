@@ -73,9 +73,7 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
-                                "/actuator/health",
-                                "/actuator/prometheus",
-                                "/actuator/info"
+                                "/actuator/health"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/invites/**").permitAll()
                         .anyRequest().authenticated()
