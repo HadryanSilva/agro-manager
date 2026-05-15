@@ -64,9 +64,9 @@ class AuthServiceTest {
         AuthResponse response = authService.register(request);
 
         assertThat(response.accessToken()).isEqualTo("access-token");
-        assertThat(response.refreshToken()).isEqualTo("refresh-token");
         assertThat(response.tokenType()).isEqualTo("Bearer");
         assertThat(response.expiresIn()).isEqualTo(900L);
+        assertThat(response.refreshToken()).isEqualTo("refresh-token");
         verify(userRepository).save(any(User.class));
     }
 
@@ -157,13 +157,12 @@ class AuthServiceTest {
         UUID userId = UUID.randomUUID();
         User user = User.builder().id(userId).email("joao@test.com")
                 .authProvider(AuthProvider.LOCAL).build();
-        RefreshTokenRequest request = new RefreshTokenRequest("valid-refresh-token");
 
         when(jwtService.extractUserIdIfValid("valid-refresh-token"))
                 .thenReturn(Optional.of(userId.toString()));
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
 
-        AuthResponse response = authService.refresh(request);
+        AuthResponse response = authService.refresh("valid-refresh-token");
 
         assertThat(response.accessToken()).isEqualTo("access-token");
         assertThat(response.refreshToken()).isEqualTo("refresh-token");
@@ -172,10 +171,9 @@ class AuthServiceTest {
     @Test
     @DisplayName("Deve lançar BusinessException quando refresh token é inválido")
     void refresh_invalidToken() {
-        RefreshTokenRequest request = new RefreshTokenRequest("invalid-token");
         when(jwtService.extractUserIdIfValid("invalid-token")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> authService.refresh(request))
+        assertThatThrownBy(() -> authService.refresh("invalid-token"))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("inválido ou expirado");
 
@@ -186,13 +184,11 @@ class AuthServiceTest {
     @DisplayName("Deve lançar ResourceNotFoundException quando usuário do token não existe mais")
     void refresh_userNotFound() {
         UUID userId = UUID.randomUUID();
-        RefreshTokenRequest request = new RefreshTokenRequest("valid-token");
-
         when(jwtService.extractUserIdIfValid("valid-token"))
                 .thenReturn(Optional.of(userId.toString()));
         when(userRepository.findById(userId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> authService.refresh(request))
+        assertThatThrownBy(() -> authService.refresh("valid-token"))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 }

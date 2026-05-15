@@ -69,10 +69,12 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional(readOnly = true)
-    public AuthResponse refresh(RefreshTokenRequest request) {
-        String token = request.refreshToken();
+    public AuthResponse refresh(String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new BusinessException("Refresh token é obrigatório", HttpStatus.UNAUTHORIZED);
+        }
 
-        String userId = jwtService.extractUserIdIfValid(token)
+        String userId = jwtService.extractUserIdIfValid(refreshToken)
                 .orElseThrow(() -> new BusinessException(
                         "Refresh token inválido ou expirado", HttpStatus.UNAUTHORIZED));
 

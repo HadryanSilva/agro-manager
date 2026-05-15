@@ -2,6 +2,7 @@ package br.com.hadryan.agro.manager;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockCookie;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -28,9 +29,11 @@ class AuthIntegrationTest extends MockMvcIntegrationTestBase {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.accessToken").isNotEmpty())
-                .andExpect(jsonPath("$.data.refreshToken").isNotEmpty())
+                .andExpect(jsonPath("$.data.refreshToken").doesNotExist())
                 .andExpect(jsonPath("$.data.tokenType").value("Bearer"))
-                .andExpect(jsonPath("$.data.expiresIn").isNumber());
+                .andExpect(jsonPath("$.data.expiresIn").isNumber())
+                .andExpect(cookie().exists("refresh_token"))
+                .andExpect(cookie().httpOnly("refresh_token", true));
     }
 
     @Test
@@ -48,7 +51,9 @@ class AuthIntegrationTest extends MockMvcIntegrationTestBase {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.accessToken").isNotEmpty())
-                .andExpect(jsonPath("$.data.refreshToken").isNotEmpty());
+                .andExpect(jsonPath("$.data.refreshToken").doesNotExist())
+                .andExpect(cookie().exists("refresh_token"))
+                .andExpect(cookie().httpOnly("refresh_token", true));
     }
 
     @Test
@@ -61,26 +66,24 @@ class AuthIntegrationTest extends MockMvcIntegrationTestBase {
         registerPayload.put("email", email);
         registerPayload.put("password", "senha12345");
 
-        // Registra e extrai o refresh token da resposta
+        // Registra e extrai o refresh token do cookie HttpOnly
         MvcResult registerResult = mockMvc.perform(post("/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(registerPayload)))
                 .andExpect(status().isCreated())
                 .andReturn();
 
-        String refreshToken = objectMapper.readTree(registerResult.getResponse().getContentAsString())
-                .path("data").path("refreshToken").asText();
-
-        // Usa o refresh token para obter novos tokens
-        Map<String, Object> refreshPayload = Map.of("refreshToken", refreshToken);
+        MockCookie refreshCookie = (MockCookie) registerResult.getResponse().getCookie("refresh_token");
 
         mockMvc.perform(post("/auth/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(refreshPayload)))
+                        .cookie(refreshCookie))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.accessToken").isNotEmpty())
-                .andExpect(jsonPath("$.data.refreshToken").isNotEmpty());
+                .andExpect(jsonPath("$.data.refreshToken").doesNotExist())
+                .andExpect(cookie().exists("refresh_token"))
+                .andExpect(cookie().httpOnly("refresh_token", true));
     }
 
     @Test
@@ -135,11 +138,9 @@ class AuthIntegrationTest extends MockMvcIntegrationTestBase {
     @Test
     @DisplayName("Deve rejeitar refresh token inválido ou expirado")
     void shouldRejectInvalidRefreshToken() throws Exception {
-        Map<String, Object> payload = Map.of("refreshToken", "token.invalido.aqui");
-
         mockMvc.perform(post("/auth/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(payload)))
+                        .cookie(new MockCookie("refresh_token", "token.invalido.aqui")))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false));
     }
