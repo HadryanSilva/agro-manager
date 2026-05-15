@@ -127,6 +127,32 @@ class EmployeeLaborIntegrationTest extends MockMvcIntegrationTestBase {
     }
 
     @Test
+    @DisplayName("Deve listar diarias pendentes sem filtros opcionais")
+    void shouldListPendingWorkEntriesWithoutOptionalFilters() throws Exception {
+        var ctx = setup();
+        String employeeId = createEmployee(ctx.token(), ctx.accountId(), "Filtro Nulo", 100.00);
+        String entryId = createWorkEntry(ctx.token(), ctx.accountId(), employeeId, null, "2026-05-11", null);
+
+        mockMvc.perform(get("/accounts/" + ctx.accountId() + "/employee-work-entries")
+                        .param("paid", "false")
+                        .header("Authorization", "Bearer " + ctx.token()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].id").value(entryId));
+    }
+
+    @Test
+    @DisplayName("Deve listar diarias em conta sem registros")
+    void shouldListWorkEntriesForEmptyAccount() throws Exception {
+        var ctx = setup();
+
+        mockMvc.perform(get("/accounts/" + ctx.accountId() + "/employee-work-entries")
+                        .header("Authorization", "Bearer " + ctx.token()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(0));
+    }
+
+    @Test
     @DisplayName("Deve rejeitar diaria duplicada e diaria para funcionario inativo")
     void shouldRejectDuplicateAndInactiveEmployeeWorkEntry() throws Exception {
         var ctx = setup();

@@ -13,10 +13,12 @@ import br.com.hadryan.agro.manager.shared.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.criteria.Predicate;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.*;
@@ -95,7 +97,7 @@ public class EmployeePaymentService {
             Pageable pageable) {
         validateMembership(accountId, userId);
         Page<EmployeePaymentResponse> payments = paymentRepository
-                .findPayments(accountId, employeeId, startDate, endDate, pageable)
+                .findAll(paymentFilters(accountId, employeeId, startDate, endDate), pageable)
                 .map(payment -> EmployeePaymentResponse.from(
                         payment,
                         workEntryRepository.countByPaymentId(payment.getId()),
@@ -189,5 +191,26 @@ public class EmployeePaymentService {
         if (!accountMemberRepository.existsByAccountIdAndUserId(accountId, userId)) {
             throw new BusinessException("Acesso negado a esta conta", HttpStatus.FORBIDDEN);
         }
+    }
+
+    private Specification<EmployeePayment> paymentFilters(
+            UUID accountId,
+            UUID employeeId,
+            LocalDate startDate,
+            LocalDate endDate) {
+        return (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(criteriaBuilder.equal(root.get("account").get("id"), accountId));
+            if (employeeId != null) {
+                predicates.add(criteriaBuilder.equal(root.get("employee").get("id"), employeeId));
+            }
+            if (startDate != null) {
+                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("paymentDate"), startDate));
+            }
+            if (endDate != null) {
+                predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("paymentDate"), endDate));
+            }
+            return criteriaBuilder.and(predicates.toArray(Predicate[]::new));
+        };
     }
 }

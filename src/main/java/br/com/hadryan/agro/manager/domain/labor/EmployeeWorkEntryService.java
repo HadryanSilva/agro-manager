@@ -11,12 +11,16 @@ import br.com.hadryan.agro.manager.shared.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.criteria.Predicate;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -62,7 +66,7 @@ public class EmployeeWorkEntryService {
             Pageable pageable) {
         validateMembership(accountId, userId);
         Page<EmployeeWorkEntryResponse> entries = entryRepository
-                .findEntries(accountId, employeeId, farmId, paid, startDate, endDate, pageable)
+                .findAll(entryFilters(accountId, employeeId, farmId, paid, startDate, endDate), pageable)
                 .map(EmployeeWorkEntryResponse::from);
         return PageResponse.of(entries, BigDecimal.ZERO);
     }
@@ -146,5 +150,36 @@ public class EmployeeWorkEntryService {
         if (entry.isPaid()) {
             throw new BusinessException(message, HttpStatus.CONFLICT);
         }
+    }
+
+    private Specification<EmployeeWorkEntry> entryFilters(
+            UUID accountId,
+            UUID employeeId,
+            UUID farmId,
+            Boolean paid,
+            LocalDate startDate,
+            LocalDate endDate) {
+        return (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(criteriaBuilder.equal(root.get("account").get("id"), accountId));
+            if (employeeId != null) {
+                predicates.add(criteriaBuilder.equal(root.get("employee").get("id"), employeeId));
+            }
+            if (farmId != null) {
+                predicates.add(criteriaBuilder.equal(root.get("farm").get("id"), farmId));
+            }
+            if (paid != null) {
+                predicates.add(paid
+                        ? criteriaBuilder.isNotNull(root.get("paymentId"))
+                        : criteriaBuilder.isNull(root.get("paymentId")));
+            }
+            if (startDate != null) {
+                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("workDate"), startDate));
+            }
+            if (endDate != null) {
+                predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("workDate"), endDate));
+            }
+            return criteriaBuilder.and(predicates.toArray(Predicate[]::new));
+        };
     }
 }
