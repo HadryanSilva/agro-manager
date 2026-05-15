@@ -3,6 +3,10 @@ package br.com.hadryan.agro.manager.domain.account;
 import br.com.hadryan.agro.manager.domain.expense.ExpenseRepository;
 import br.com.hadryan.agro.manager.domain.farm.FarmActivityRepository;
 import br.com.hadryan.agro.manager.domain.farm.FarmRepository;
+import br.com.hadryan.agro.manager.domain.labor.EmployeePaymentExpenseRepository;
+import br.com.hadryan.agro.manager.domain.labor.EmployeePaymentRepository;
+import br.com.hadryan.agro.manager.domain.labor.EmployeeRepository;
+import br.com.hadryan.agro.manager.domain.labor.EmployeeWorkEntryRepository;
 import br.com.hadryan.agro.manager.domain.quotation.QuotationRepository;
 import br.com.hadryan.agro.manager.domain.trading.ClientOrderRepository;
 import br.com.hadryan.agro.manager.domain.trading.OrderSupplierLegRepository;
@@ -42,6 +46,10 @@ public class AccountServiceImpl implements AccountService {
     private final FarmRepository farmRepository;
     private final TradingClientRepository tradingClientRepository;
     private final TradingSupplierRepository tradingSupplierRepository;
+    private final EmployeePaymentExpenseRepository employeePaymentExpenseRepository;
+    private final EmployeeWorkEntryRepository employeeWorkEntryRepository;
+    private final EmployeePaymentRepository employeePaymentRepository;
+    private final EmployeeRepository employeeRepository;
     private final UserRepository userRepository;
 
     @Override
@@ -125,6 +133,10 @@ public class AccountServiceImpl implements AccountService {
         orderSupplierLegRepository.deleteByOrderAccountId(accountId);
         clientOrderRepository.deleteByAccountId(accountId);
         farmActivityRepository.deleteByFarmAccountId(accountId);
+        employeePaymentExpenseRepository.deleteByPaymentAccountId(accountId);
+        employeeWorkEntryRepository.deleteByAccountId(accountId);
+        employeePaymentRepository.deleteByAccountId(accountId);
+        employeeRepository.deleteByAccountId(accountId);
         expenseRepository.deleteByAccountId(accountId);
         quotationRepository.deleteByAccountId(accountId);
         farmRepository.deleteByAccountId(accountId);
