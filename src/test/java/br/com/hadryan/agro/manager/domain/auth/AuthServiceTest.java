@@ -57,7 +57,7 @@ class AuthServiceTest {
     void register_success() {
         RegisterRequest request = new RegisterRequest("João", "joao@test.com", "senha123");
 
-        when(userRepository.existsByEmail("joao@test.com")).thenReturn(false);
+        when(userRepository.existsByEmailIgnoreCase("joao@test.com")).thenReturn(false);
         when(passwordEncoder.encode("senha123")).thenReturn("hashed");
         when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -71,10 +71,25 @@ class AuthServiceTest {
     }
 
     @Test
+    @DisplayName("Deve normalizar e-mail antes de verificar duplicidade e salvar usuário")
+    void register_normalizesEmail() {
+        RegisterRequest request = new RegisterRequest("João", "  Joao@Test.COM  ", "senha123");
+
+        when(userRepository.existsByEmailIgnoreCase("joao@test.com")).thenReturn(false);
+        when(passwordEncoder.encode("senha123")).thenReturn("hashed");
+        when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        authService.register(request);
+
+        verify(userRepository).existsByEmailIgnoreCase("joao@test.com");
+        verify(userRepository).save(argThat(user -> "joao@test.com".equals(user.getEmail())));
+    }
+
+    @Test
     @DisplayName("Deve lançar BusinessException quando e-mail já está cadastrado")
     void register_duplicateEmail() {
         RegisterRequest request = new RegisterRequest("João", "joao@test.com", "senha123");
-        when(userRepository.existsByEmail("joao@test.com")).thenReturn(true);
+        when(userRepository.existsByEmailIgnoreCase("joao@test.com")).thenReturn(true);
 
         assertThatThrownBy(() -> authService.register(request))
                 .isInstanceOf(BusinessException.class)
@@ -93,12 +108,31 @@ class AuthServiceTest {
                 .id(UUID.randomUUID()).email("joao@test.com")
                 .authProvider(AuthProvider.LOCAL).build();
 
-        when(userRepository.findByEmail("joao@test.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmailIgnoreCase("joao@test.com")).thenReturn(Optional.of(user));
 
         AuthResponse response = authService.login(request);
 
         assertThat(response.accessToken()).isEqualTo("access-token");
         verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
+    }
+
+    @Test
+    @DisplayName("Deve normalizar e-mail antes de autenticar e buscar usuário")
+    void login_normalizesEmail() {
+        LoginRequest request = new LoginRequest("  Joao@Test.COM  ", "senha123");
+        User user = User.builder()
+                .id(UUID.randomUUID()).email("joao@test.com")
+                .authProvider(AuthProvider.LOCAL).build();
+
+        when(userRepository.findByEmailIgnoreCase("joao@test.com")).thenReturn(Optional.of(user));
+
+        authService.login(request);
+
+        verify(authenticationManager).authenticate(argThat(authentication ->
+                authentication instanceof UsernamePasswordAuthenticationToken
+                        && "joao@test.com".equals(authentication.getPrincipal())
+                        && "senha123".equals(authentication.getCredentials())));
+        verify(userRepository).findByEmailIgnoreCase("joao@test.com");
     }
 
     @Test
@@ -112,7 +146,7 @@ class AuthServiceTest {
         assertThatThrownBy(() -> authService.login(request))
                 .isInstanceOf(BadCredentialsException.class);
 
-        verify(userRepository, never()).findByEmail(any());
+        verify(userRepository, never()).findByEmailIgnoreCase(any());
     }
 
     // ── refresh ───────────────────────────────────────────────────────────────

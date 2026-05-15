@@ -39,7 +39,7 @@ O **Agro Manager** é uma plataforma de gestão agrícola desenvolvida para prod
 - **Spring Security** — JWT stateless + OAuth2 Google
 - **Spring Data JPA** + **Hibernate**
 - **PostgreSQL 17** + **Flyway**
-- **Lombok** + **MapStruct**
+- **Lombok**
 - **Docker** multi-stage (eclipse-temurin:25)
 
 ## Pré-requisitos
@@ -86,7 +86,7 @@ A API estará disponível em `http://localhost:8080`.
 docker compose up postgres -d
 
 # Executar a aplicação
-mvn spring-boot:run -Dspring-boot.run.profiles=dev
+./gradlew bootRun --args='--spring.profiles.active=dev'
 ```
 
 ## Estrutura do projeto

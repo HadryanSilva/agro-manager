@@ -1,6 +1,7 @@
 package br.com.hadryan.agro.manager.infra.security.oauth2;
 
 import br.com.hadryan.agro.manager.domain.user.AuthProvider;
+import br.com.hadryan.agro.manager.domain.user.EmailNormalizer;
 import br.com.hadryan.agro.manager.domain.user.User;
 import br.com.hadryan.agro.manager.domain.user.UserRepository;
 import br.com.hadryan.agro.manager.infra.security.UserPrincipal;
@@ -57,7 +58,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         Map<String, Object> attributes = oAuth2User.getAttributes();
 
         String providerId = (String) attributes.get("sub");
-        String email = (String) attributes.get("email");
+        String email = EmailNormalizer.normalize((String) attributes.get("email"));
         String name = (String) attributes.get("name");
         String avatarUrl = (String) attributes.get("picture");
         Boolean emailVerified = (Boolean) attributes.getOrDefault("email_verified", false);
@@ -69,7 +70,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             );
         }
 
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmailIgnoreCase(email)
                 .map(existing -> updateExistingUser(existing, name, avatarUrl, providerId, emailVerified))
                 .orElseGet(() -> createNewUser(email, name, avatarUrl, providerId, emailVerified));
 

@@ -2,6 +2,7 @@ package br.com.hadryan.agro.manager.domain.auth;
 
 import br.com.hadryan.agro.manager.config.JwtProperties;
 import br.com.hadryan.agro.manager.domain.user.AuthProvider;
+import br.com.hadryan.agro.manager.domain.user.EmailNormalizer;
 import br.com.hadryan.agro.manager.domain.user.User;
 import br.com.hadryan.agro.manager.domain.user.UserRepository;
 import br.com.hadryan.agro.manager.infra.security.JwtService;
@@ -34,13 +35,14 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponse register(RegisterRequest request) {
-        if (userRepository.existsByEmail(request.email())) {
+        String email = EmailNormalizer.normalize(request.email());
+        if (userRepository.existsByEmailIgnoreCase(email)) {
             throw new BusinessException("E-mail já cadastrado");
         }
 
         User user = User.builder()
                 .name(request.name())
-                .email(request.email())
+                .email(email)
                 .passwordHash(passwordEncoder.encode(request.password()))
                 .authProvider(AuthProvider.LOCAL)
                 .emailVerified(false)
@@ -54,12 +56,13 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional(readOnly = true)
     public AuthResponse login(LoginRequest request) {
+        String email = EmailNormalizer.normalize(request.email());
         authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.email(), request.password())
+                new UsernamePasswordAuthenticationToken(email, request.password())
         );
 
-        User user = userRepository.findByEmail(request.email())
-                .orElseThrow(() -> new ResourceNotFoundException("Usuário", "email", request.email()));
+        User user = userRepository.findByEmailIgnoreCase(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuário", "email", email));
 
         return buildAuthResponse(user);
     }
