@@ -79,15 +79,12 @@ public class TradingSupplierService {
     public void delete(UUID accountId, UUID userId, UUID supplierId) {
         validateMembership(accountId, userId);
         TradingSupplier supplier = findSupplier(supplierId, accountId);
-
-        // Impede exclusão de fornecedor com lotes vinculados — dados históricos devem ser preservados
-        if (supplierRepository.hasAssociatedLots(supplierId)) {
+        if (supplierRepository.hasAssociatedLegs(supplierId)) {
             throw new BusinessException(
-                    "Não é possível excluir um fornecedor com lotes de compra registrados.",
+                    "Não é possível excluir um fornecedor com pedidos registrados.",
                     HttpStatus.CONFLICT
             );
         }
-
         supplierRepository.delete(supplier);
     }
 
