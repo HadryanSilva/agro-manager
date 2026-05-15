@@ -1,5 +1,14 @@
 package br.com.hadryan.agro.manager.domain.account;
 
+import br.com.hadryan.agro.manager.domain.expense.ExpenseRepository;
+import br.com.hadryan.agro.manager.domain.farm.FarmActivityRepository;
+import br.com.hadryan.agro.manager.domain.farm.FarmRepository;
+import br.com.hadryan.agro.manager.domain.quotation.QuotationRepository;
+import br.com.hadryan.agro.manager.domain.trading.ClientOrderRepository;
+import br.com.hadryan.agro.manager.domain.trading.OrderSupplierLegRepository;
+import br.com.hadryan.agro.manager.domain.trading.OrderTruckRepository;
+import br.com.hadryan.agro.manager.domain.trading.TradingClientRepository;
+import br.com.hadryan.agro.manager.domain.trading.TradingSupplierRepository;
 import br.com.hadryan.agro.manager.domain.user.User;
 import br.com.hadryan.agro.manager.domain.user.UserRepository;
 import br.com.hadryan.agro.manager.shared.exception.BusinessException;
@@ -30,6 +39,16 @@ class AccountServiceTest {
 
     @Mock private AccountRepository accountRepository;
     @Mock private AccountMemberRepository accountMemberRepository;
+    @Mock private AccountInviteRepository accountInviteRepository;
+    @Mock private OrderTruckRepository orderTruckRepository;
+    @Mock private OrderSupplierLegRepository orderSupplierLegRepository;
+    @Mock private ClientOrderRepository clientOrderRepository;
+    @Mock private FarmActivityRepository farmActivityRepository;
+    @Mock private ExpenseRepository expenseRepository;
+    @Mock private QuotationRepository quotationRepository;
+    @Mock private FarmRepository farmRepository;
+    @Mock private TradingClientRepository tradingClientRepository;
+    @Mock private TradingSupplierRepository tradingSupplierRepository;
     @Mock private UserRepository userRepository;
 
     @InjectMocks private AccountServiceImpl accountService;
