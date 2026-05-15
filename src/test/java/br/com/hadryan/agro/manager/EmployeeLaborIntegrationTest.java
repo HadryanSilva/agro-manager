@@ -289,6 +289,21 @@ class EmployeeLaborIntegrationTest extends MockMvcIntegrationTestBase {
                 .andExpect(status().isNotFound());
     }
 
+    @Test
+    @DisplayName("Deve excluir conta com diarias pagas e despesas geradas")
+    void shouldDeleteAccountWithPaidLaborData() throws Exception {
+        var ctx = setup();
+        String employeeId = createEmployee(ctx.token(), ctx.accountId(), "Conta Delete", 100.00);
+        createWorkEntry(ctx.token(), ctx.accountId(), employeeId, ctx.farmId(), "2026-05-11", null);
+        payEmployee(ctx.token(), ctx.accountId(), employeeId, "2026-05-11", "2026-05-11", "2026-05-15");
+
+        mockMvc.perform(delete("/accounts/" + ctx.accountId())
+                        .header("Authorization", "Bearer " + ctx.token())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("confirmationName", "Fazenda Labor"))))
+                .andExpect(status().isNoContent());
+    }
+
     private String payEmployee(String token, String accountId, String employeeId,
                                String periodStart, String periodEnd, String paymentDate) throws Exception {
         Map<String, Object> payload = new HashMap<>();
