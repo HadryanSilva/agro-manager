@@ -8,6 +8,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -250,5 +251,60 @@ class EmployeeLaborIntegrationTest extends MockMvcIntegrationTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(paymentPayload)))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("Nao deve editar ou excluir diaria paga")
+    void shouldBlockUpdateAndDeletePaidWorkEntry() throws Exception {
+        var ctx = setup();
+        String employeeId = createEmployee(ctx.token(), ctx.accountId(), "Luiz Diarista", 100.00);
+        String entryId = createWorkEntry(ctx.token(), ctx.accountId(), employeeId, null, "2026-05-11", null);
+        payEmployee(ctx.token(), ctx.accountId(), employeeId, "2026-05-11", "2026-05-11", "2026-05-15");
+
+        Map<String, Object> updatePayload = new HashMap<>();
+        updatePayload.put("employeeId", employeeId);
+        updatePayload.put("workDate", "2026-05-11");
+        updatePayload.put("dailyRate", 110.00);
+
+        mockMvc.perform(put("/accounts/" + ctx.accountId() + "/employee-work-entries/" + entryId)
+                        .header("Authorization", "Bearer " + ctx.token())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updatePayload)))
+                .andExpect(status().isConflict());
+
+        mockMvc.perform(delete("/accounts/" + ctx.accountId() + "/employee-work-entries/" + entryId)
+                        .header("Authorization", "Bearer " + ctx.token()))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    @DisplayName("Deve isolar funcionarios entre contas")
+    void shouldIsolateEmployeesAcrossAccounts() throws Exception {
+        var ctxA = setup();
+        var ctxB = setup();
+        String employeeA = createEmployee(ctxA.token(), ctxA.accountId(), "Conta A", 100.00);
+
+        mockMvc.perform(get("/accounts/" + ctxB.accountId() + "/employees/" + employeeA)
+                        .header("Authorization", "Bearer " + ctxB.token()))
+                .andExpect(status().isNotFound());
+    }
+
+    private String payEmployee(String token, String accountId, String employeeId,
+                               String periodStart, String periodEnd, String paymentDate) throws Exception {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("employeeId", employeeId);
+        payload.put("periodStart", periodStart);
+        payload.put("periodEnd", periodEnd);
+        payload.put("paymentDate", paymentDate);
+
+        MvcResult result = mockMvc.perform(post("/accounts/" + accountId + "/employee-payments")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        return objectMapper.readTree(result.getResponse().getContentAsString())
+                .path("data").path("id").asText();
     }
 }
