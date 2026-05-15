@@ -3,6 +3,7 @@ package br.com.hadryan.agro.manager.domain.trading;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -41,6 +42,10 @@ public interface ClientOrderRepository extends JpaRepository<ClientOrder, UUID> 
     long countByAccountId(UUID accountId);
 
     long countByAccountIdAndStatus(UUID accountId, ClientOrderStatus status);
+
+    @Modifying
+    @Query("DELETE FROM ClientOrder o WHERE o.account.id = :accountId")
+    void deleteByAccountId(@Param("accountId") UUID accountId);
 
     @Query("SELECT COALESCE(SUM(t.quantityKg), 0) FROM OrderTruck t WHERE t.leg.order.account.id = :accountId")
     BigDecimal sumTotalKgByAccountId(@Param("accountId") UUID accountId);

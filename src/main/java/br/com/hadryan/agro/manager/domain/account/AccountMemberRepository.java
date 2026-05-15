@@ -1,7 +1,9 @@
 package br.com.hadryan.agro.manager.domain.account;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
@@ -46,4 +48,8 @@ public interface AccountMemberRepository extends JpaRepository<AccountMember, UU
             GROUP BY am.account.id
             """)
     List<Object[]> countMembersByAccountIds(Collection<UUID> accountIds);
+
+    @Modifying
+    @Query("DELETE FROM AccountMember am WHERE am.account.id = :accountId")
+    void deleteByAccountId(@Param("accountId") UUID accountId);
 }

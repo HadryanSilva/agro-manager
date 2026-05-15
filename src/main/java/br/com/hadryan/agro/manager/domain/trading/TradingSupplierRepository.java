@@ -21,4 +21,8 @@ public interface TradingSupplierRepository extends JpaRepository<TradingSupplier
 
     @Query("SELECT COUNT(l) > 0 FROM OrderSupplierLeg l WHERE l.supplier.id = :supplierId")
     boolean hasAssociatedLegs(@Param("supplierId") UUID supplierId);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("DELETE FROM TradingSupplier s WHERE s.account.id = :accountId")
+    void deleteByAccountId(@Param("accountId") UUID accountId);
 }

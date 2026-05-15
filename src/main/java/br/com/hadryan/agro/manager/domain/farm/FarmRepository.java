@@ -1,6 +1,7 @@
 package br.com.hadryan.agro.manager.domain.farm;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
@@ -43,4 +44,8 @@ public interface FarmRepository extends JpaRepository<Farm, UUID> {
             ORDER BY f.createdAt DESC
             """)
     List<Farm> findByAccountIdAndComputedStatus(UUID accountId, String status);
+
+    @Modifying
+    @Query("DELETE FROM Farm f WHERE f.account.id = :accountId")
+    void deleteByAccountId(UUID accountId);
 }

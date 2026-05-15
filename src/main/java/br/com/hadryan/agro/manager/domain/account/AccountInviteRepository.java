@@ -1,6 +1,7 @@
 package br.com.hadryan.agro.manager.domain.account;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -45,4 +46,8 @@ public interface AccountInviteRepository extends JpaRepository<AccountInvite, UU
     boolean existsActiveInviteByEmail(@Param("accountId") UUID accountId,
                                       @Param("email") String email,
                                       @Param("now") LocalDateTime now);
+
+    @Modifying
+    @Query("DELETE FROM AccountInvite i WHERE i.account.id = :accountId")
+    void deleteByAccountId(@Param("accountId") UUID accountId);
 }

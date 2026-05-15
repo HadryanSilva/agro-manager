@@ -3,6 +3,7 @@ package br.com.hadryan.agro.manager.domain.expense;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -110,6 +111,10 @@ public interface ExpenseRepository extends JpaRepository<Expense, UUID> {
             GROUP BY e.farm.id
             """)
     List<Object[]> sumValueAndPaidByFarmIds(@Param("farmIds") Collection<UUID> farmIds);
+
+    @Modifying
+    @Query("DELETE FROM Expense e WHERE e.account.id = :accountId")
+    void deleteByAccountId(@Param("accountId") UUID accountId);
 
     /**
      * Soma total das transações filtradas — usada para o totalizador da página.
