@@ -3,6 +3,10 @@ package br.com.hadryan.agro.manager.domain.account;
 import br.com.hadryan.agro.manager.domain.expense.ExpenseRepository;
 import br.com.hadryan.agro.manager.domain.farm.FarmActivityRepository;
 import br.com.hadryan.agro.manager.domain.farm.FarmRepository;
+import br.com.hadryan.agro.manager.domain.labor.EmployeePaymentExpenseRepository;
+import br.com.hadryan.agro.manager.domain.labor.EmployeePaymentRepository;
+import br.com.hadryan.agro.manager.domain.labor.EmployeeRepository;
+import br.com.hadryan.agro.manager.domain.labor.EmployeeWorkEntryRepository;
 import br.com.hadryan.agro.manager.domain.quotation.QuotationRepository;
 import br.com.hadryan.agro.manager.domain.trading.ClientOrderRepository;
 import br.com.hadryan.agro.manager.domain.trading.OrderSupplierLegRepository;
@@ -49,6 +53,10 @@ class AccountServiceTest {
     @Mock private FarmRepository farmRepository;
     @Mock private TradingClientRepository tradingClientRepository;
     @Mock private TradingSupplierRepository tradingSupplierRepository;
+    @Mock private EmployeePaymentExpenseRepository employeePaymentExpenseRepository;
+    @Mock private EmployeeWorkEntryRepository employeeWorkEntryRepository;
+    @Mock private EmployeePaymentRepository employeePaymentRepository;
+    @Mock private EmployeeRepository employeeRepository;
     @Mock private UserRepository userRepository;
 
     @InjectMocks private AccountServiceImpl accountService;
@@ -181,6 +189,10 @@ class AccountServiceTest {
                 new DeleteAccountRequest("Fazenda Real"));
 
         verify(accountRepository).delete(account);
+        verify(employeePaymentExpenseRepository).deleteByPaymentAccountId(accountId);
+        verify(employeeWorkEntryRepository).deleteByAccountId(accountId);
+        verify(employeePaymentRepository).deleteByAccountId(accountId);
+        verify(employeeRepository).deleteByAccountId(accountId);
     }
 
     @Test
