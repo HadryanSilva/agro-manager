@@ -179,4 +179,76 @@ class EmployeeLaborIntegrationTest extends MockMvcIntegrationTestBase {
         return objectMapper.readTree(result.getResponse().getContentAsString())
                 .path("data").path("id").asText();
     }
+
+    @Test
+    @DisplayName("Deve pagar periodo misto e gerar despesas separadas")
+    void shouldPayMixedPeriodAndGenerateSeparateExpenses() throws Exception {
+        var ctx = setup();
+        String employeeId = createEmployee(ctx.token(), ctx.accountId(), "Ana Diarista", 100.00);
+        createWorkEntry(ctx.token(), ctx.accountId(), employeeId, null, "2026-05-11", null);
+        createWorkEntry(ctx.token(), ctx.accountId(), employeeId, ctx.farmId(), "2026-05-12", 150.00);
+
+        Map<String, Object> paymentPayload = new HashMap<>();
+        paymentPayload.put("employeeId", employeeId);
+        paymentPayload.put("periodStart", "2026-05-11");
+        paymentPayload.put("periodEnd", "2026-05-12");
+        paymentPayload.put("paymentDate", "2026-05-15");
+        paymentPayload.put("notes", "Pagamento semanal");
+
+        MvcResult result = mockMvc.perform(post("/accounts/" + ctx.accountId() + "/employee-payments")
+                        .header("Authorization", "Bearer " + ctx.token())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(paymentPayload)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.employeeId").value(employeeId))
+                .andExpect(jsonPath("$.data.totalAmount").value(250.00))
+                .andExpect(jsonPath("$.data.paidEntriesCount").value(2))
+                .andExpect(jsonPath("$.data.generatedExpenses.length()").value(2))
+                .andReturn();
+
+        String paymentId = objectMapper.readTree(result.getResponse().getContentAsString())
+                .path("data").path("id").asText();
+
+        mockMvc.perform(get("/accounts/" + ctx.accountId() + "/employee-work-entries")
+                        .param("employeeId", employeeId)
+                        .param("paid", "true")
+                        .header("Authorization", "Bearer " + ctx.token()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(2))
+                .andExpect(jsonPath("$.data.content[0].paymentId").value(paymentId))
+                .andExpect(jsonPath("$.data.content[1].paymentId").value(paymentId));
+
+        mockMvc.perform(get("/accounts/" + ctx.accountId() + "/farms/" + ctx.farmId() + "/report")
+                        .header("Authorization", "Bearer " + ctx.token()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalServicos").value(150.00))
+                .andExpect(jsonPath("$.data.totalPaid").value(150.00));
+
+        mockMvc.perform(get("/accounts/" + ctx.accountId() + "/transactions")
+                        .param("general", "true")
+                        .header("Authorization", "Bearer " + ctx.token()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].category").value("SERVICO"))
+                .andExpect(jsonPath("$.data.content[0].value").value(100.00))
+                .andExpect(jsonPath("$.data.content[0].paid").value(true));
+    }
+
+    @Test
+    @DisplayName("Deve rejeitar pagamento sem diarias pendentes")
+    void shouldRejectPaymentWithoutPendingEntries() throws Exception {
+        var ctx = setup();
+        String employeeId = createEmployee(ctx.token(), ctx.accountId(), "Carlos Diarista", 100.00);
+
+        Map<String, Object> paymentPayload = new HashMap<>();
+        paymentPayload.put("employeeId", employeeId);
+        paymentPayload.put("periodStart", "2026-05-11");
+        paymentPayload.put("periodEnd", "2026-05-12");
+        paymentPayload.put("paymentDate", "2026-05-15");
+
+        mockMvc.perform(post("/accounts/" + ctx.accountId() + "/employee-payments")
+                        .header("Authorization", "Bearer " + ctx.token())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(paymentPayload)))
+                .andExpect(status().isBadRequest());
+    }
 }

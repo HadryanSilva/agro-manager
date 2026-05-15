@@ -21,6 +21,8 @@ public interface EmployeeWorkEntryRepository extends JpaRepository<EmployeeWorkE
 
     Optional<EmployeeWorkEntry> findByIdAndAccountId(UUID id, UUID accountId);
 
+    long countByPaymentId(UUID paymentId);
+
     @Query(
             value = """
                     SELECT e FROM EmployeeWorkEntry e
