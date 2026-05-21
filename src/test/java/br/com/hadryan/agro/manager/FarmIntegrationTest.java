@@ -172,4 +172,65 @@ class FarmIntegrationTest extends MockMvcIntegrationTestBase {
                         .header("Authorization", "Bearer " + tokenB))
                 .andExpect(status().isNotFound());
     }
+
+    @Test
+    @DisplayName("Deve criar lavoura como terra própria sem dados de arrendamento")
+    void shouldCreateFarmAsOwnLand() throws Exception {
+        var ctx = setup();
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("name", "Lavoura Terra Própria");
+        payload.put("areaValue", 50.0);
+        payload.put("areaUnit", "HECTARE");
+        payload.put("cancelled", false);
+        payload.put("ownLand", true);
+
+        mockMvc.perform(post("/accounts/" + ctx.accountId() + "/farms")
+                        .header("Authorization", "Bearer " + ctx.token())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.ownLand").value(true))
+                .andExpect(jsonPath("$.data.lessorName").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("Deve atualizar lavoura para terra própria limpando dados de arrendamento")
+    void shouldUpdateFarmToOwnLandClearingLeaseData() throws Exception {
+        var ctx = setup();
+
+        // Cria com arrendamento
+        Map<String, Object> createPayload = new HashMap<>();
+        createPayload.put("name", "Lavoura Arrendada");
+        createPayload.put("areaValue", 30.0);
+        createPayload.put("areaUnit", "HECTARE");
+        createPayload.put("cancelled", false);
+        createPayload.put("ownLand", false);
+        createPayload.put("lessorName", "João da Silva");
+        createPayload.put("leaseValue", 5000.0);
+
+        String farmId = objectMapper.readTree(
+                mockMvc.perform(post("/accounts/" + ctx.accountId() + "/farms")
+                                .header("Authorization", "Bearer " + ctx.token())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(createPayload)))
+                        .andReturn().getResponse().getContentAsString()
+        ).at("/data/id").asText();
+
+        // Atualiza para terra própria (frontend zera campos de arrendamento)
+        Map<String, Object> updatePayload = new HashMap<>();
+        updatePayload.put("name", "Lavoura Arrendada");
+        updatePayload.put("areaValue", 30.0);
+        updatePayload.put("areaUnit", "HECTARE");
+        updatePayload.put("cancelled", false);
+        updatePayload.put("ownLand", true);
+
+        mockMvc.perform(put("/accounts/" + ctx.accountId() + "/farms/" + farmId)
+                        .header("Authorization", "Bearer " + ctx.token())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updatePayload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.ownLand").value(true))
+                .andExpect(jsonPath("$.data.lessorName").doesNotExist());
+    }
 }
