@@ -7,6 +7,7 @@ import org.springframework.http.MediaType;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -191,7 +192,7 @@ class FarmIntegrationTest extends MockMvcIntegrationTestBase {
                         .content(objectMapper.writeValueAsString(payload)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.ownLand").value(true))
-                .andExpect(jsonPath("$.data.lessorName").value(null));
+                .andExpect(jsonPath("$.data.lessorName", nullValue()));
     }
 
     @Test
@@ -231,6 +232,6 @@ class FarmIntegrationTest extends MockMvcIntegrationTestBase {
                         .content(objectMapper.writeValueAsString(updatePayload)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.ownLand").value(true))
-                .andExpect(jsonPath("$.data.lessorName").value(null));
+                .andExpect(jsonPath("$.data.lessorName", nullValue()));
     }
 }

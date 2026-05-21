@@ -41,7 +41,7 @@ public record FarmRequest(
 
         boolean cancelled,
 
-        boolean ownLand,
+        Boolean ownLand,
 
         String notes
 ) {}

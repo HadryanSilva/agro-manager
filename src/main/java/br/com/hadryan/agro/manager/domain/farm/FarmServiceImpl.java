@@ -34,7 +34,7 @@ public class FarmServiceImpl implements FarmService {
                 .leaseValue(request.leaseValue()).plantingStartDate(request.plantingStartDate())
                 .plantingEndDate(request.plantingEndDate()).harvestStartDate(request.harvestStartDate())
                 .harvestEndDate(request.harvestEndDate()).cancelled(request.cancelled())
-                .ownLand(request.ownLand())
+                .ownLand(Boolean.TRUE.equals(request.ownLand()))
                 .notes(request.notes()).build();
         return FarmResponse.from(farmRepository.save(farm));
     }
@@ -67,7 +67,7 @@ public class FarmServiceImpl implements FarmService {
         farm.setLeaseValue(request.leaseValue()); farm.setPlantingStartDate(request.plantingStartDate());
         farm.setPlantingEndDate(request.plantingEndDate()); farm.setHarvestStartDate(request.harvestStartDate());
         farm.setHarvestEndDate(request.harvestEndDate()); farm.setCancelled(request.cancelled());
-        farm.setOwnLand(request.ownLand());
+        farm.setOwnLand(Boolean.TRUE.equals(request.ownLand()));
         farm.setNotes(request.notes());
         FarmResponse updated = FarmResponse.from(farmRepository.save(farm));
         activityService.record(farmId, userId, FarmActivityType.FARM_UPDATED, "Dados da lavoura atualizados", null);
