@@ -191,7 +191,7 @@ class FarmIntegrationTest extends MockMvcIntegrationTestBase {
                         .content(objectMapper.writeValueAsString(payload)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.ownLand").value(true))
-                .andExpect(jsonPath("$.data.lessorName").doesNotExist());
+                .andExpect(jsonPath("$.data.lessorName").value(null));
     }
 
     @Test
@@ -231,6 +231,6 @@ class FarmIntegrationTest extends MockMvcIntegrationTestBase {
                         .content(objectMapper.writeValueAsString(updatePayload)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.ownLand").value(true))
-                .andExpect(jsonPath("$.data.lessorName").doesNotExist());
+                .andExpect(jsonPath("$.data.lessorName").value(null));
     }
 }
