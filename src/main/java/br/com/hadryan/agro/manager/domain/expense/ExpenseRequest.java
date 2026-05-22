@@ -36,5 +36,9 @@ public record ExpenseRequest(
         String notes,
 
         // Opcional — null indica despesa geral da conta (sem lavoura vinculada)
-        UUID farmId
+        UUID farmId,
+
+        // Compra no prazo — boxed Boolean para compatibilidade com Jackson 3.x (campo ausente em payloads legados)
+        Boolean creditPurchase,
+        LocalDate dueDate
 ) {}

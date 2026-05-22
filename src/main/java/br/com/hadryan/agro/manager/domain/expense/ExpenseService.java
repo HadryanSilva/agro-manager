@@ -3,6 +3,7 @@ package br.com.hadryan.agro.manager.domain.expense;
 import br.com.hadryan.agro.manager.shared.dto.PageResponse;
 import org.springframework.data.domain.Pageable;
 
+import java.util.List;
 import java.util.UUID;
 
 /** Contrato do serviço de gerenciamento de despesas (lavoura e gerais). */
@@ -20,4 +21,6 @@ public interface ExpenseService {
     ExpenseResponse updateGeneral(UUID accountId, UUID userId, UUID expenseId, ExpenseRequest request);
     void deleteGeneral(UUID accountId, UUID userId, UUID expenseId);
     ExpenseResponse markGeneralAsPaid(UUID accountId, UUID userId, UUID expenseId);
+
+    List<ExpenseResponse> findUpcoming(UUID accountId, UUID userId, int days);
 }

@@ -72,6 +72,10 @@ public class Farm {
     @Builder.Default
     private boolean cancelled = false;
 
+    @Column(name = "own_land", nullable = false)
+    @Builder.Default
+    private boolean ownLand = false;
+
     @Column(columnDefinition = "TEXT")
     private String notes;
 

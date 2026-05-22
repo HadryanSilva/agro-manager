@@ -4,6 +4,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -236,5 +237,109 @@ class ExpenseIntegrationTest extends MockMvcIntegrationTestBase {
                         .header("Authorization", "Bearer " + ctx.token()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.length()").value(0));
+    }
+
+    @Test
+    @DisplayName("Deve criar despesa como compra no prazo com data de vencimento")
+    void shouldCreateCreditPurchaseWithDueDate() throws Exception {
+        var ctx = setup();
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("description", "Sementes a prazo");
+        payload.put("category", "INSUMO");
+        payload.put("value", 5000.00);
+        payload.put("competenceDate", "2025-04-01");
+        payload.put("creditPurchase", true);
+        payload.put("dueDate", "2025-05-15");
+
+        mockMvc.perform(post("/accounts/" + ctx.accountId() + "/farms/" + ctx.farmId() + "/expenses")
+                        .header("Authorization", "Bearer " + ctx.token())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.creditPurchase").value(true))
+                .andExpect(jsonPath("$.data.dueDate").value("2025-05-15"));
+    }
+
+    @Test
+    @DisplayName("Deve retornar creditPurchase false em despesas normais")
+    void shouldReturnFalseForCreditPurchaseOnNormalExpenses() throws Exception {
+        var ctx = setup();
+        String expenseId = createExpense(ctx.token(), ctx.accountId(), ctx.farmId(),
+                "Despesa Normal", "INSUMO", 1000.0, "2025-01-01");
+
+        mockMvc.perform(get("/accounts/" + ctx.accountId() + "/farms/" + ctx.farmId() + "/expenses/" + expenseId)
+                        .header("Authorization", "Bearer " + ctx.token()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.creditPurchase").value(false));
+    }
+
+    @Test
+    @DisplayName("Deve rejeitar compra no prazo sem data de vencimento — retorna 400")
+    void shouldRejectCreditPurchaseWithoutDueDate() throws Exception {
+        var ctx = setup();
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("description", "Compra sem vencimento");
+        payload.put("category", "INSUMO");
+        payload.put("value", 1000.00);
+        payload.put("competenceDate", "2025-04-01");
+        payload.put("creditPurchase", true);
+        // dueDate ausente
+
+        mockMvc.perform(post("/accounts/" + ctx.accountId() + "/farms/" + ctx.farmId() + "/expenses")
+                        .header("Authorization", "Bearer " + ctx.token())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    @DisplayName("Deve retornar despesas próximas do vencimento via /upcoming")
+    void shouldReturnUpcomingCreditExpenses() throws Exception {
+        var ctx = setup();
+
+        // Despesa com vencimento em 3 dias — deve aparecer no /upcoming (janela padrão: 7 dias)
+        Map<String, Object> upcoming = new HashMap<>();
+        upcoming.put("description", "Insumo com vencimento próximo");
+        upcoming.put("category", "INSUMO");
+        upcoming.put("value", 3000.00);
+        upcoming.put("competenceDate", "2025-04-01");
+        upcoming.put("creditPurchase", true);
+        upcoming.put("dueDate", LocalDate.now().plusDays(3).toString());
+
+        mockMvc.perform(post("/accounts/" + ctx.accountId() + "/farms/" + ctx.farmId() + "/expenses")
+                        .header("Authorization", "Bearer " + ctx.token())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(upcoming)))
+                .andExpect(status().isCreated());
+
+        // Despesa paga não deve aparecer
+        Map<String, Object> paid = new HashMap<>();
+        paid.put("description", "Despesa Já Paga");
+        paid.put("category", "INSUMO");
+        paid.put("value", 500.00);
+        paid.put("competenceDate", "2025-04-01");
+        paid.put("creditPurchase", true);
+        paid.put("dueDate", LocalDate.now().plusDays(2).toString());
+        paid.put("paymentDate", "2025-04-15");
+
+        mockMvc.perform(post("/accounts/" + ctx.accountId() + "/farms/" + ctx.farmId() + "/expenses")
+                        .header("Authorization", "Bearer " + ctx.token())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(paid)))
+                .andExpect(status().isCreated());
+
+        // Despesa sem creditPurchase não deve aparecer
+        createExpense(ctx.token(), ctx.accountId(), ctx.farmId(),
+                "Despesa Normal", "SERVICO", 200.0, "2025-04-01");
+
+        mockMvc.perform(get("/accounts/" + ctx.accountId() + "/expenses/upcoming")
+                        .header("Authorization", "Bearer " + ctx.token()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].description").value("Insumo com vencimento próximo"));
     }
 }
