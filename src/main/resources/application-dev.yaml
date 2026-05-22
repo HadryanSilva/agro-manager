@@ -59,3 +59,5 @@ app:
   mail:
     from-name: ${MAIL_FROM_NAME:Agro Manager}
     from-address: ${MAIL_FROM_ADDRESS:john.doe@email.com}
+  notifications:
+    default-days-ahead: 7

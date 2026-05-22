@@ -10,7 +10,10 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
+import java.util.List;
 import java.util.UUID;
+
+import org.springframework.beans.factory.annotation.Value;
 
 /**
  * Endpoints para gerenciamento de despesas gerais da conta (sem lavoura vinculada).
@@ -21,6 +24,9 @@ import java.util.UUID;
 public class GeneralExpenseController {
 
     private final ExpenseService expenseService;
+
+    @Value("${app.notifications.default-days-ahead:7}")
+    private int defaultDaysAhead;
 
     @PostMapping
     public ResponseEntity<ApiResponse<ExpenseResponse>> createGeneral(
@@ -79,5 +85,15 @@ public class GeneralExpenseController {
 
         ExpenseResponse response = expenseService.markGeneralAsPaid(accountId, principal.getId(), expenseId);
         return ResponseEntity.ok(ApiResponse.success("Despesa marcada como paga", response));
+    }
+
+    @GetMapping("/upcoming")
+    public ResponseEntity<ApiResponse<List<ExpenseResponse>>> upcoming(
+            @PathVariable UUID accountId,
+            @RequestParam(required = false) Integer days,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        int d = (days != null) ? days : defaultDaysAhead;
+        List<ExpenseResponse> result = expenseService.findUpcoming(accountId, principal.getId(), d);
+        return ResponseEntity.ok(ApiResponse.success(result));
     }
 }

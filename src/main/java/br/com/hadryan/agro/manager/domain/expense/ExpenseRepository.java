@@ -116,6 +116,20 @@ public interface ExpenseRepository extends JpaRepository<Expense, UUID> {
     @Query("DELETE FROM Expense e WHERE e.account.id = :accountId")
     void deleteByAccountId(@Param("accountId") UUID accountId);
 
+    @Query("""
+        SELECT e FROM Expense e
+        WHERE e.account.id = :accountId
+          AND e.creditPurchase = true
+          AND e.paymentDate IS NULL
+          AND e.dueDate BETWEEN :today AND :until
+        ORDER BY e.dueDate ASC
+    """)
+    List<Expense> findUpcomingCreditExpenses(
+        @Param("accountId") UUID accountId,
+        @Param("today") LocalDate today,
+        @Param("until") LocalDate until
+    );
+
     /**
      * Soma total das transações filtradas — usada para o totalizador da página.
      */

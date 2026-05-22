@@ -54,6 +54,13 @@ public class Expense {
     @Column(name = "payment_date")
     private LocalDate paymentDate;
 
+    @Column(name = "is_credit", nullable = false)
+    @Builder.Default
+    private boolean creditPurchase = false;
+
+    @Column(name = "due_date")
+    private LocalDate dueDate;
+
     @Column(columnDefinition = "TEXT")
     private String notes;
 

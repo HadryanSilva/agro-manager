@@ -19,6 +19,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -44,6 +45,8 @@ public class ExpenseServiceImpl implements  ExpenseService {
     public ExpenseResponse create(UUID accountId, UUID farmId, UUID userId, ExpenseRequest request) {
         Farm farm = findFarmAndValidate(accountId, farmId, userId);
 
+        validateCreditPurchase(request);
+
         Expense expense = Expense.builder()
                 .account(farm.getAccount())  // sempre presente — garante o tenant correto
                 .farm(farm)
@@ -52,6 +55,8 @@ public class ExpenseServiceImpl implements  ExpenseService {
                 .value(request.value())
                 .competenceDate(request.competenceDate())
                 .paymentDate(request.paymentDate())
+                .creditPurchase(Boolean.TRUE.equals(request.creditPurchase()))
+                .dueDate(Boolean.TRUE.equals(request.creditPurchase()) ? request.dueDate() : null)
                 .notes(request.notes())
                 .build();
 
@@ -87,6 +92,7 @@ public class ExpenseServiceImpl implements  ExpenseService {
     @Transactional
     public ExpenseResponse update(UUID accountId, UUID farmId, UUID userId, UUID expenseId, ExpenseRequest request) {
         findFarmAndValidate(accountId, farmId, userId);
+        validateCreditPurchase(request);
         Expense expense = findExpense(expenseId, farmId);
 
         expense.setDescription(request.description());
@@ -94,6 +100,8 @@ public class ExpenseServiceImpl implements  ExpenseService {
         expense.setValue(request.value());
         expense.setCompetenceDate(request.competenceDate());
         expense.setPaymentDate(request.paymentDate());
+        expense.setCreditPurchase(Boolean.TRUE.equals(request.creditPurchase()));
+        expense.setDueDate(Boolean.TRUE.equals(request.creditPurchase()) ? request.dueDate() : null);
         expense.setNotes(request.notes());
 
         ExpenseResponse updated = ExpenseResponse.from(expenseRepository.save(expense));
@@ -146,6 +154,8 @@ public class ExpenseServiceImpl implements  ExpenseService {
             throw new BusinessException("Acesso negado a esta conta", HttpStatus.FORBIDDEN);
         }
 
+        validateCreditPurchase(request);
+
         Expense expense = Expense.builder()
                 .account(account)
                 .farm(null)
@@ -154,6 +164,8 @@ public class ExpenseServiceImpl implements  ExpenseService {
                 .value(request.value())
                 .competenceDate(request.competenceDate())
                 .paymentDate(request.paymentDate())
+                .creditPurchase(Boolean.TRUE.equals(request.creditPurchase()))
+                .dueDate(Boolean.TRUE.equals(request.creditPurchase()) ? request.dueDate() : null)
                 .notes(request.notes())
                 .build();
 
@@ -169,6 +181,7 @@ public class ExpenseServiceImpl implements  ExpenseService {
     @Transactional
     public ExpenseResponse updateGeneral(UUID accountId, UUID userId, UUID expenseId, ExpenseRequest request) {
         validateMembership(accountId, userId);
+        validateCreditPurchase(request);
         Expense expense = findGeneralExpense(expenseId, accountId);
 
         expense.setDescription(request.description());
@@ -176,6 +189,8 @@ public class ExpenseServiceImpl implements  ExpenseService {
         expense.setValue(request.value());
         expense.setCompetenceDate(request.competenceDate());
         expense.setPaymentDate(request.paymentDate());
+        expense.setCreditPurchase(Boolean.TRUE.equals(request.creditPurchase()));
+        expense.setDueDate(Boolean.TRUE.equals(request.creditPurchase()) ? request.dueDate() : null);
         expense.setNotes(request.notes());
 
         return ExpenseResponse.from(expenseRepository.save(expense));
@@ -227,5 +242,22 @@ public class ExpenseServiceImpl implements  ExpenseService {
     private Expense findGeneralExpense(UUID expenseId, UUID accountId) {
         return expenseRepository.findByIdAndAccountIdAndFarmIsNull(expenseId, accountId)
                 .orElseThrow(() -> new ResourceNotFoundException("Despesa", "id", expenseId));
+    }
+
+    private void validateCreditPurchase(ExpenseRequest request) {
+        if (Boolean.TRUE.equals(request.creditPurchase()) && request.dueDate() == null) {
+            throw new BusinessException("Data de vencimento obrigatória para compra no prazo", HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public List<ExpenseResponse> findUpcoming(UUID accountId, UUID userId, int days) {
+        validateMembership(accountId, userId);
+        LocalDate today = LocalDate.now();
+        LocalDate until = today.plusDays(days);
+        return expenseRepository.findUpcomingCreditExpenses(accountId, today, until)
+                .stream()
+                .map(ExpenseResponse::from)
+                .toList();
     }
 }
