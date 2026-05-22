@@ -342,4 +342,30 @@ class ExpenseIntegrationTest extends MockMvcIntegrationTestBase {
                 .andExpect(jsonPath("$.data.length()").value(1))
                 .andExpect(jsonPath("$.data[0].description").value("Insumo com vencimento próximo"));
     }
+
+    @Test
+    @DisplayName("Deve negar acesso a /upcoming de outra conta — retorna 403")
+    void shouldDenyUpcomingAccessFromDifferentAccount() throws Exception {
+        // Account A — creates a credit expense
+        var ctxA = setup();
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("description", "Despesa da conta A");
+        payload.put("category", "INSUMO");
+        payload.put("value", 1000.00);
+        payload.put("competenceDate", "2025-04-01");
+        payload.put("creditPurchase", true);
+        payload.put("dueDate", java.time.LocalDate.now().plusDays(3).toString());
+
+        mockMvc.perform(post("/accounts/" + ctxA.accountId() + "/farms/" + ctxA.farmId() + "/expenses")
+                        .header("Authorization", "Bearer " + ctxA.token())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isCreated());
+
+        // Account B — attempts to read Account A's /upcoming
+        var ctxB = setup();
+        mockMvc.perform(get("/accounts/" + ctxA.accountId() + "/expenses/upcoming")
+                        .header("Authorization", "Bearer " + ctxB.token()))
+                .andExpect(status().isForbidden());
+    }
 }
