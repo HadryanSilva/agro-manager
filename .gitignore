@@ -47,3 +47,4 @@ mcp-config.json
 MCP_CONFIG.md
 .worktrees/
 docs
+!docs/superpowers/
