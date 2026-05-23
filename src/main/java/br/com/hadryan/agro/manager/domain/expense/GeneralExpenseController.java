@@ -2,6 +2,7 @@ package br.com.hadryan.agro.manager.domain.expense;
 
 import br.com.hadryan.agro.manager.infra.security.UserPrincipal;
 import br.com.hadryan.agro.manager.shared.dto.ApiResponse;
+import br.com.hadryan.agro.manager.domain.user.UserPreferencesService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -13,8 +14,6 @@ import java.net.URI;
 import java.util.List;
 import java.util.UUID;
 
-import org.springframework.beans.factory.annotation.Value;
-
 /**
  * Endpoints para gerenciamento de despesas gerais da conta (sem lavoura vinculada).
  */
@@ -24,9 +23,7 @@ import org.springframework.beans.factory.annotation.Value;
 public class GeneralExpenseController {
 
     private final ExpenseService expenseService;
-
-    @Value("${app.notifications.default-days-ahead:7}")
-    private int defaultDaysAhead;
+    private final UserPreferencesService userPreferencesService;
 
     @PostMapping
     public ResponseEntity<ApiResponse<ExpenseResponse>> createGeneral(
@@ -92,7 +89,8 @@ public class GeneralExpenseController {
             @PathVariable UUID accountId,
             @RequestParam(required = false) Integer days,
             @AuthenticationPrincipal UserPrincipal principal) {
-        int d = (days != null) ? days : defaultDaysAhead;
+        int d = (days != null) ? days
+              : userPreferencesService.getOrCreate(principal.getId()).notificationDaysAhead();
         List<ExpenseResponse> result = expenseService.findUpcoming(accountId, principal.getId(), d);
         return ResponseEntity.ok(ApiResponse.success(result));
     }
