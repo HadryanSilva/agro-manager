@@ -14,26 +14,17 @@ public class UserPreferencesServiceImpl implements UserPreferencesService {
 
     @Transactional
     public UserPreferencesResponse getOrCreate(UUID userId) {
+        userPreferencesRepository.insertDefaultIfNotExists(userId);
         return UserPreferencesResponse.from(
-                userPreferencesRepository.findByUserId(userId)
-                        .orElseGet(() -> createDefault(userId))
+                userPreferencesRepository.findByUserId(userId).orElseThrow()
         );
     }
 
     @Transactional
     public UserPreferencesResponse update(UUID userId, UserPreferencesRequest request) {
-        UserPreferences prefs = userPreferencesRepository.findByUserId(userId)
-                .orElseGet(() -> createDefault(userId));
+        userPreferencesRepository.insertDefaultIfNotExists(userId);
+        UserPreferences prefs = userPreferencesRepository.findByUserId(userId).orElseThrow();
         prefs.setNotificationDaysAhead(request.notificationDaysAhead());
         return UserPreferencesResponse.from(userPreferencesRepository.save(prefs));
-    }
-
-    private UserPreferences createDefault(UUID userId) {
-        return userPreferencesRepository.save(
-                UserPreferences.builder()
-                        .userId(userId)
-                        .notificationDaysAhead(7)
-                        .build()
-        );
     }
 }
