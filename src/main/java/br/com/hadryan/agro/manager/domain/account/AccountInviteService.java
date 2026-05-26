@@ -14,5 +14,7 @@ public interface AccountInviteService {
 
     AccountInviteResponse getInviteDetails(UUID token);
 
+    AccountInviteResponse getInviteDetailsByCode(String code);
+
     AccountMemberResponse acceptInvite(UUID token, UUID userId);
 }

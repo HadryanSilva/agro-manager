@@ -27,6 +27,9 @@ import java.util.UUID;
 public class AccountInviteServiceImpl implements  AccountInviteService {
 
     private static final int INVITE_EXPIRY_DAYS = 7;
+    private static final String CODE_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    private static final int    CODE_LENGTH    = 8;
+    private static final java.security.SecureRandom CODE_RANDOM = new java.security.SecureRandom();
 
     private final AccountInviteRepository inviteRepository;
     private final AccountMemberRepository memberRepository;
@@ -71,6 +74,7 @@ public class AccountInviteServiceImpl implements  AccountInviteService {
         AccountInvite invite = AccountInvite.builder()
                 .account(account)
                 .token(UUID.randomUUID())
+                .code(generateUniqueCode())
                 .invitedEmail(invitedEmail)
                 .role(role)
                 .createdBy(creator)
@@ -122,6 +126,22 @@ public class AccountInviteServiceImpl implements  AccountInviteService {
         return AccountInviteResponse.from(invite, frontendUrl);
     }
 
+    @Transactional(readOnly = true)
+    public AccountInviteResponse getInviteDetailsByCode(String code) {
+        String normalized = code.toUpperCase().replace("-", "");
+        AccountInvite invite = inviteRepository.findByCodeWithDetails(normalized)
+                .orElseThrow(() -> new ResourceNotFoundException("Convite", "code", code));
+
+        if (invite.isUsed()) {
+            throw new BusinessException("Este convite já foi utilizado", HttpStatus.GONE);
+        }
+        if (invite.isExpired()) {
+            throw new BusinessException("Este convite expirou", HttpStatus.GONE);
+        }
+
+        return AccountInviteResponse.from(invite, frontendUrl);
+    }
+
     /**
      * Aceita um convite e adiciona o usuário autenticado como membro da conta.
      * Valida que o e-mail do usuário autenticado coincide com o e-mail do convite.
@@ -163,6 +183,20 @@ public class AccountInviteServiceImpl implements  AccountInviteService {
     }
 
     // ── Utilitários privados ──────────────────────────────────────────────────
+
+    private String generateUniqueCode() {
+        for (int attempt = 0; attempt < 5; attempt++) {
+            StringBuilder sb = new StringBuilder(CODE_LENGTH);
+            for (int i = 0; i < CODE_LENGTH; i++) {
+                sb.append(CODE_ALPHABET.charAt(CODE_RANDOM.nextInt(CODE_ALPHABET.length())));
+            }
+            String code = sb.toString();
+            if (!inviteRepository.existsByCode(code)) {
+                return code;
+            }
+        }
+        throw new IllegalStateException("Failed to generate unique invite code after 5 attempts");
+    }
 
     private AccountInvite findActiveInvite(UUID token) {
         AccountInvite invite = inviteRepository.findByTokenWithDetails(token)
