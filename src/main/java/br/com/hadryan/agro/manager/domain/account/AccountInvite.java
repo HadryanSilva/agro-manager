@@ -37,7 +37,7 @@ public class AccountInvite {
     private UUID token;
 
     // Código curto de 8 caracteres para entrada manual no onboarding
-    @Column(nullable = false, unique = true, length = 8)
+    @Column(nullable = false, unique = true, columnDefinition = "char(8)")
     private String code;
 
     // E-mail do destinatário — apenas este e-mail pode aceitar o convite
