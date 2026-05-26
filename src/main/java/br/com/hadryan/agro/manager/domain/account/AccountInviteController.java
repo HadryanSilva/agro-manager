@@ -83,6 +83,19 @@ public class AccountInviteController {
     }
 
     /**
+     * Retorna detalhes do convite pelo código curto.
+     * Endpoint coberto pelo permitAll de GET /invites/** no SecurityConfig.
+     * Aceita código com ou sem hífen — normalização feita no service.
+     */
+    @GetMapping("/invites/code/{code}")
+    public ResponseEntity<ApiResponse<AccountInviteResponse>> getInviteDetailsByCode(
+            @PathVariable String code) {
+
+        AccountInviteResponse response = inviteService.getInviteDetailsByCode(code);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    /**
      * Aceita o convite e adiciona o usuário autenticado como membro da conta.
      * Valida que o e-mail do usuário autenticado coincide com o e-mail do convite.
      */

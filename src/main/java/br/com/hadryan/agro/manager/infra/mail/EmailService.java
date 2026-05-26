@@ -54,7 +54,8 @@ public class EmailService {
                                 String inviterName,
                                 String role,
                                 String inviteUrl,
-                                LocalDateTime expiresAt) {
+                                LocalDateTime expiresAt,
+                                String inviteCode) {
         try {
             // Monta as variáveis disponíveis no template
             Context context = new Context(Locale.forLanguageTag("pt-BR"));
@@ -63,6 +64,7 @@ public class EmailService {
             context.setVariable("roleLabel",    resolveRoleLabel(role));
             context.setVariable("inviteUrl",    inviteUrl);
             context.setVariable("expiresAt",    expiresAt.format(DATE_FORMATTER));
+            context.setVariable("inviteCode",   inviteCode);
 
             // Processa o template email/invite.html com as variáveis acima
             String html = templateEngine.process("email/invite", context);
