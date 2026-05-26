@@ -23,7 +23,7 @@ public record AccountInviteResponse(
 ) {
     public static AccountInviteResponse from(AccountInvite invite, String frontendUrl) {
         String raw = invite.getCode();
-        String formattedCode = raw.substring(0, 4) + "-" + raw.substring(4);
+        String formattedCode = raw != null ? raw.substring(0, 4) + "-" + raw.substring(4) : null;
         return new AccountInviteResponse(
                 invite.getId(),
                 invite.getToken(),
