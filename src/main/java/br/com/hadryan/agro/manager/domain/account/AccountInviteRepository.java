@@ -34,6 +34,16 @@ public interface AccountInviteRepository extends JpaRepository<AccountInvite, UU
             """)
     Optional<AccountInvite> findByTokenWithDetails(@Param("token") UUID token);
 
+    boolean existsByCode(String code);
+
+    @Query("""
+            SELECT i FROM AccountInvite i
+            JOIN FETCH i.account
+            JOIN FETCH i.createdBy
+            WHERE i.code = :code
+            """)
+    Optional<AccountInvite> findByCodeWithDetails(@Param("code") String code);
+
     // Verifica se já existe convite ativo para o mesmo e-mail na mesma conta
     // Evita duplicidade antes de criar um novo convite
     @Query("""
